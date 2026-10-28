@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2026 Andrey Kuvshinov
+ *
+ * Dual-licensed under Apache-2.0 OR MIT.
+ * See LICENSE-APACHE and LICENSE-MIT for details.
+ */
+
+#ifndef SUPERCOP_CRYPTO_SIGN_FAEST_AREION256F_API_H
+#define SUPERCOP_CRYPTO_SIGN_FAEST_AREION256F_API_H
+
+#define CRYPTO_SECRETKEYBYTES 96
+#define CRYPTO_PUBLICKEYBYTES 64
+#define CRYPTO_BYTES          20512
+#define CRYPTO_SEEDBYTES      64
+#define CRYPTO_VERSION        "0.1.0"
+
+int crypto_sign_seed_keypair(
+    unsigned char *pk,
+    unsigned char *sk,
+    const unsigned char *seed);
+
+int crypto_sign_keypair(
+    unsigned char *pk,
+    unsigned char *sk);
+
+int crypto_sign_signature(
+    unsigned char *sig,
+    unsigned long long *siglen,
+    const unsigned char *m,
+    unsigned long long mlen,
+    const unsigned char *sk);
+
+int crypto_sign_verify(
+    const unsigned char *sig,
+    unsigned long long siglen,
+    const unsigned char *m,
+    unsigned long long mlen,
+    const unsigned char *pk);
+
+int crypto_sign(
+    unsigned char *sm,
+    unsigned long long *smlen,
+    const unsigned char *m,
+    unsigned long long mlen,
+    const unsigned char *sk);
+
+int crypto_sign_open(
+    unsigned char *m,
+    unsigned long long *mlen,
+    const unsigned char *sm,
+    unsigned long long smlen,
+    const unsigned char *pk);
+
+#endif /* SUPERCOP_CRYPTO_SIGN_FAEST_AREION256F_API_H */

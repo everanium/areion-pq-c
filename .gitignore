@@ -1,0 +1,25 @@
+# Build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.gcda
+*.gcno
+*.gcov
+coverage.info
+areion_pq_test
+areion_pq_zeroize_test
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
