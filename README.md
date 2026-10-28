@@ -178,7 +178,7 @@ Compared to 14-round `Rijndael-256` (`FAEST-EM-256`, `480 B` witness) and `FAEST
 
 ### 1. Intel® Core™ i7-11700K @ 3.60GHz (Rocket Lake, x86-64)
 
-3-run averaged throughput measured across all 5 execution tiers on the same physical CPU (`taskset -c 2 ./areion_pq_test --bench --tier=<tier>`, `f = 3.60 GHz`):
+3-run averaged throughput measured across all 5 execution tiers on the same physical CPU (`./areion_pq_test --bench --tier=<tier>`, `f = 3.60 GHz`):
 
 #### Finite-Field, Witness Extraction, KDF & Wide-Block AEAD Primitives (MB/s, ns/op)
 
@@ -215,7 +215,7 @@ On Intel® Core™ i7-11700K, `areion_pq_slhdsa_verify128f` completes in **`168.
 
 ### 2. AWS Graviton 4 (`c8g.4xlarge`, Neoverse-V2, 16 vCPUs, ARM64)
 
-3-run averaged throughput measured on AWS Graviton 4 (`taskset -c 2 ./areion_pq_test --bench --tier=<tier>`, `purec` bitsliced fallback vs `arm64` ARMv8 Cryptographic Extension at `f = 2.80 GHz`):
+3-run averaged throughput measured on AWS Graviton 4 (`./areion_pq_test --bench --tier=<tier>`, `purec` bitsliced fallback vs `arm64` ARMv8 Cryptographic Extension at `f = 2.80 GHz`):
 
 #### Finite-Field, Witness Extraction, KDF & Wide-Block AEAD Primitives (MB/s, ns/op)
 
@@ -320,12 +320,13 @@ AREION_PQ_FORCE_TIER=vaesavx2 ./areion_pq_test && AREION_PQ_FORCE_TIER=vaesavx2 
 AREION_PQ_FORCE_TIER=avx512   ./areion_pq_test && AREION_PQ_FORCE_TIER=avx512   ./areion_pq_zeroize_test
 AREION_PQ_FORCE_TIER=arm64    ./areion_pq_test && AREION_PQ_FORCE_TIER=arm64    ./areion_pq_zeroize_test
 
-# Benchmark all 5 x86-64 tiers pinned to a single physical core:
-taskset -c 2 ./areion_pq_test --bench --tier=purec
-taskset -c 2 ./areion_pq_test --bench --tier=aesni
-taskset -c 2 ./areion_pq_test --bench --tier=vex
-taskset -c 2 ./areion_pq_test --bench --tier=vaesavx2
-taskset -c 2 ./areion_pq_test --bench --tier=avx512
+# Benchmark individual tiers:
+./areion_pq_test --bench --tier=purec
+./areion_pq_test --bench --tier=aesni
+./areion_pq_test --bench --tier=vex
+./areion_pq_test --bench --tier=vaesavx2
+./areion_pq_test --bench --tier=avx512
+./areion_pq_test --bench --tier=arm64
 ```
 
 ### 3. Build & Test with CMake
