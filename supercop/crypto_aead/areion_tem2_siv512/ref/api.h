@@ -13,7 +13,7 @@
 #define CRYPTO_NPUBBYTES 32
 #define CRYPTO_ABYTES    32
 #define CRYPTO_NOOVERLAP 1
-#define CRYPTO_VERSION   "0.1.1"
+#define CRYPTO_VERSION   "0.2.0"
 
 int crypto_aead_encrypt(
     unsigned char *c,

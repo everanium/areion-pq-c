@@ -29,11 +29,11 @@ Version macros, block/state/witness/key/signature size constants (in bytes), and
 
 | Macro | Value | Description |
 | :--- | :---: | :--- |
-| `AREION_PQ_VERSION` | `"0.1.1"` | Null-terminated semantic version string |
-| `AREION_PQ_VERSION_STRING` | `"0.1.1"` | Alias for `AREION_PQ_VERSION` |
+| `AREION_PQ_VERSION` | `"0.2.0"` | Null-terminated semantic version string |
+| `AREION_PQ_VERSION_STRING` | `"0.2.0"` | Alias for `AREION_PQ_VERSION` |
 | `AREION_PQ_VERSION_MAJOR` | `0` | Major version number |
-| `AREION_PQ_VERSION_MINOR` | `1` | Minor version number |
-| `AREION_PQ_VERSION_PATCH` | `1` | Patch version number |
+| `AREION_PQ_VERSION_MINOR` | `2` | Minor version number |
+| `AREION_PQ_VERSION_PATCH` | `0` | Patch version number |
 | `AREION_PQ_API` | platform-specific | Shared-library symbol export attribute (`__attribute__((visibility("default")))` or `__declspec(dllexport)`) |
 | `AREION_API` | platform-specific | Defaults to `__attribute__((visibility("hidden")))` when `areion.h` is included through `areion_pq.h` so `libareion_pq.so` exports only `areion_pq_*` symbols |
 
@@ -277,7 +277,7 @@ Standard SUPERCOP (`eBACS`) C99 `ref` wrappers (`api.h` + `sign.c` / `encrypt.c`
 | `supercop/crypto_sign/slh_dsa_areion256s/ref/` | `crypto_sign` | `areion_pq_slhdsa_{keygen,sign,verify}256s` | 96 / 64 / 128 / 29,792 B |
 | `supercop/crypto_aead/areion_tem2_siv512/ref/` | `crypto_aead` | `areion_pq_tem2_siv_{encrypt,decrypt}` | Key: 128 B / Nonce: 32 B / Tag: 32 B |
 
-Each `supercop/crypto_sign/<scheme>/ref/api.h` defines `CRYPTO_SECRETKEYBYTES`, `CRYPTO_PUBLICKEYBYTES`, `CRYPTO_BYTES`, `CRYPTO_SEEDBYTES`, `CRYPTO_VERSION` (`"0.1.1"`), and the 6 SUPERCOP C99 entry points (`0` on success, `-1` on verification failure):
+Each `supercop/crypto_sign/<scheme>/ref/api.h` defines `CRYPTO_SECRETKEYBYTES`, `CRYPTO_PUBLICKEYBYTES`, `CRYPTO_BYTES`, `CRYPTO_SEEDBYTES`, `CRYPTO_VERSION` (`"0.2.0"`), and the 6 SUPERCOP C99 entry points (`0` on success, `-1` on verification failure):
 ```c
 int crypto_sign_seed_keypair(unsigned char *pk, unsigned char *sk, const unsigned char *seed);
 int crypto_sign_keypair(unsigned char *pk, unsigned char *sk);
@@ -286,7 +286,7 @@ int crypto_sign_verify(const unsigned char *sig, unsigned long long siglen, cons
 int crypto_sign(unsigned char *sm, unsigned long long *smlen, const unsigned char *m, unsigned long long mlen, const unsigned char *sk);
 int crypto_sign_open(unsigned char *m, unsigned long long *mlen, const unsigned char *sm, unsigned long long smlen, const unsigned char *pk);
 ```
-`supercop/crypto_aead/areion_tem2_siv512/ref/api.h` defines `CRYPTO_KEYBYTES` (`128`), `CRYPTO_NSECBYTES` (`0`), `CRYPTO_NPUBBYTES` (`32`), `CRYPTO_ABYTES` (`32`), `CRYPTO_NOOVERLAP` (`1`), `CRYPTO_VERSION` (`"0.1.1"`), and:
+`supercop/crypto_aead/areion_tem2_siv512/ref/api.h` defines `CRYPTO_KEYBYTES` (`128`), `CRYPTO_NSECBYTES` (`0`), `CRYPTO_NPUBBYTES` (`32`), `CRYPTO_ABYTES` (`32`), `CRYPTO_NOOVERLAP` (`1`), `CRYPTO_VERSION` (`"0.2.0"`), and:
 ```c
 int crypto_aead_encrypt(unsigned char *c, unsigned long long *clen, const unsigned char *m, unsigned long long mlen, const unsigned char *ad, unsigned long long adlen, const unsigned char *nsec, const unsigned char *npub, const unsigned char *k);
 int crypto_aead_decrypt(unsigned char *m, unsigned long long *mlen, unsigned char *nsec, const unsigned char *c, unsigned long long clen, const unsigned char *ad, unsigned long long adlen, const unsigned char *npub, const unsigned char *k);

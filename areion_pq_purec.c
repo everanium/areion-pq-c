@@ -806,6 +806,19 @@ static AREION_PQ_NOINLINE int pq_verify_witness256_purec_body(
     return (int)(1U & ((diff - 1U) >> 31U));
 }
 
+static const uint8_t pq_zero32[32] = {0};
+
+static inline void pq_wipe288(uint8_t w[288]) {
+#if defined(__GNUC__) || defined(__clang__)
+    memset(&w[0], 0, 128U);
+    memset(&w[128], 0, 128U);
+    memset(&w[256], 0, 32U);
+    __asm__ __volatile__("" : : "r"(w) : "memory");
+#else
+    areion_pq_secure_wipe(w, 288U);
+#endif
+}
+
 static int pq_verify_witness256_internal(
     const uint8_t m[32], const uint8_t c[32],
     const uint8_t k1[32], const uint8_t k2[32],
@@ -818,7 +831,7 @@ static int pq_verify_witness256_internal(
         ok = (int)((uint32_t)areion_pq_ct_eq(c, c_exp, 32U) &
                    (uint32_t)areion_pq_ct_eq(w, w_exp, 288U));
         areion_pq_secure_wipe(c_exp, sizeof(c_exp));
-        areion_pq_secure_wipe(w_exp, sizeof(w_exp));
+        pq_wipe288(w_exp);
         areion_pq_clobber_scratch_gprs();
         return ok;
     }
@@ -838,38 +851,39 @@ int areion_pq_verify_witness256_p2(
     return pq_verify_witness256_internal(m, c, k1, k2, w, areion_pq_rc_p2);
 }
 
-static AREION_PQ_NOINLINE void pq_extract_witness_em2_256_body(
+static AREION_PQ_NOINLINE void pq_extract_witness_em2_256_purec_body(
     uint8_t c[32], uint8_t w[576], const uint8_t m[32], const uint8_t k1[32], const uint8_t k2[32]) {
-    uint8_t zero32[32];
     uint8_t u_p1[32], k12[32];
 
-    memset(zero32, 0, sizeof(zero32));
     pq_xor32(k12, k1, k2);
-    areion_pq_dispatch_extract_witness256(u_p1, &w[0], m, k1, zero32, areion_pq_rc_p1);
-    areion_pq_dispatch_extract_witness256(c, &w[288], u_p1, k2, k12, areion_pq_rc_p2);
-
-    areion_pq_secure_wipe(u_p1, sizeof(u_p1));
-    areion_pq_secure_wipe(k12, sizeof(k12));
+    pq_extract_witness256_purec_body(u_p1, &w[0], m, k1, pq_zero32, areion_pq_rc_p1);
+    pq_extract_witness256_purec_body(c, &w[288], u_p1, k2, k12, areion_pq_rc_p2);
 }
 
 void areion_pq_extract_witness_em2_256(
     uint8_t c[32], uint8_t w[576], const uint8_t m[32], const uint8_t k1[32], const uint8_t k2[32]) {
-    pq_extract_witness_em2_256_body(c, w, m, k1, k2);
-    if (!areion_pq_has_hw_extract_witness256()) {
-        areion_pq_wipe_software_stack();
+    if (areion_pq_has_hw_extract_witness256()) {
+        uint8_t u_p1[32], k12[32];
+        pq_xor32(k12, k1, k2);
+        areion_pq_dispatch_extract_witness256(u_p1, &w[0], m, k1, pq_zero32, areion_pq_rc_p1);
+        areion_pq_dispatch_extract_witness256(c, &w[288], u_p1, k2, k12, areion_pq_rc_p2);
+        areion_pq_secure_wipe(u_p1, sizeof(u_p1));
+        areion_pq_secure_wipe(k12, sizeof(k12));
+        areion_pq_clobber_scratch_gprs();
+        return;
     }
+    pq_extract_witness_em2_256_purec_body(c, w, m, k1, k2);
+    areion_pq_wipe_software_stack();
     areion_pq_clobber_scratch_gprs();
 }
 
 static AREION_PQ_NOINLINE int pq_verify_witness_em2_256_purec_body(
     const uint8_t m[32], const uint8_t c[32], const uint8_t k1[32], const uint8_t k2[32], const uint8_t w[576]) {
-    uint8_t zero32[32];
     uint8_t x0[16], x1[16], a_next9[16], u9[16], b_next9[16], u_p1[32], k12[32];
     uint64_t q[8], q_rc[8];
     size_t k;
     int ok1, ok2;
 
-    memset(zero32, 0, sizeof(zero32));
     /* Recompute Round 9 output of P1 from round 8 witness w[256..287]. */
     memcpy(x0, &w[256], 16U);
     memcpy(x1, &w[272], 16U);
@@ -893,7 +907,7 @@ static AREION_PQ_NOINLINE int pq_verify_witness_em2_256_purec_body(
     memcpy(&u_p1[16], a_next9, 16U);
     pq_xor32(k12, k1, k2);
 
-    ok1 = pq_verify_witness256_purec_body(m, u_p1, k1, zero32, &w[0], areion_pq_rc_p1);
+    ok1 = pq_verify_witness256_purec_body(m, u_p1, k1, pq_zero32, &w[0], areion_pq_rc_p1);
     ok2 = pq_verify_witness256_purec_body(u_p1, c, k2, k12, &w[288], areion_pq_rc_p2);
 
     return (ok1 != 0 && ok2 != 0) ? 1 : 0;
@@ -903,13 +917,11 @@ int areion_pq_verify_witness_em2_256(
     const uint8_t m[32], const uint8_t c[32], const uint8_t k1[32], const uint8_t k2[32], const uint8_t w[576]) {
     int ok;
     if (areion_pq_has_hw_extract_witness256()) {
-        uint8_t zero32[32];
         uint8_t u_p1[32], c_exp[32], k12[32];
         uint8_t w1_exp[288], w2_exp[288];
 
-        memset(zero32, 0, sizeof(zero32));
         pq_xor32(k12, k1, k2);
-        areion_pq_dispatch_extract_witness256(u_p1, w1_exp, m, k1, zero32, areion_pq_rc_p1);
+        areion_pq_dispatch_extract_witness256(u_p1, w1_exp, m, k1, pq_zero32, areion_pq_rc_p1);
         areion_pq_dispatch_extract_witness256(c_exp, w2_exp, u_p1, k2, k12, areion_pq_rc_p2);
 
         ok = (int)((uint32_t)areion_pq_ct_eq(c, c_exp, 32U) &
@@ -919,8 +931,8 @@ int areion_pq_verify_witness_em2_256(
         areion_pq_secure_wipe(u_p1, sizeof(u_p1));
         areion_pq_secure_wipe(c_exp, sizeof(c_exp));
         areion_pq_secure_wipe(k12, sizeof(k12));
-        areion_pq_secure_wipe(w1_exp, sizeof(w1_exp));
-        areion_pq_secure_wipe(w2_exp, sizeof(w2_exp));
+        pq_wipe288(w1_exp);
+        pq_wipe288(w2_exp);
         areion_pq_clobber_scratch_gprs();
         return ok;
     }

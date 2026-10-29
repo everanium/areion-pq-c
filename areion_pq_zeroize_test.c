@@ -702,10 +702,17 @@ static void cb_public_witness(const void *p) {
     uint8_t c[32];
     uint8_t w256[AREION_PQ_WITNESS256_SIZE];
     uint8_t wem[AREION_PQ_WITNESS_EM2_256_SIZE];
+    int ok;
 
     areion_pq_extract_witness256(c, w256, ctx->secret, ctx->secret + 32, ctx->secret + 64);
+    ok = areion_pq_verify_witness256(ctx->secret, c, ctx->secret + 32, ctx->secret + 64, w256);
+    (void)ok;
     areion_pq_extract_witness256_p2(c, w256, ctx->secret, ctx->secret + 32, ctx->secret + 64);
+    ok = areion_pq_verify_witness256_p2(ctx->secret, c, ctx->secret + 32, ctx->secret + 64, w256);
+    (void)ok;
     areion_pq_extract_witness_em2_256(c, wem, ctx->secret, ctx->secret + 32, ctx->secret + 64);
+    ok = areion_pq_verify_witness_em2_256(ctx->secret, c, ctx->secret + 32, ctx->secret + 64, wem);
+    (void)ok;
 
     areion_pq_zeroize(c, sizeof(c));
     areion_pq_zeroize(w256, sizeof(w256));

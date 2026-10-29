@@ -143,10 +143,13 @@ func main() {
 	printHex("OrthoSigma256", out32[:])
 
 	var m32, k1_32, k2_32 [32]byte
+	var c256, c256p2, cem2 [32]byte
+	var w256, w256p2 [288]byte
+	var wem2 [576]byte
 	fillPattern(m32[:], 0x11)
 	fillPattern(k1_32[:], 0x12)
 	fillPattern(k2_32[:], 0x13)
-	c256, w256 := areionpq.ExtractWitness256(&m32, &k1_32, &k2_32)
+	areionpq.ExtractWitness256(&c256, &w256, &m32, &k1_32, &k2_32)
 	printHex("ExtractWitness256_C", c256[:])
 	printHex("ExtractWitness256_W", w256[:])
 	printBool("VerifyWitness256", areionpq.VerifyWitness256(&m32, &c256, &k1_32, &k2_32, &w256))
@@ -154,7 +157,7 @@ func main() {
 	fillPattern(m32[:], 0x14)
 	fillPattern(k1_32[:], 0x15)
 	fillPattern(k2_32[:], 0x16)
-	c256p2, w256p2 := areionpq.ExtractWitness256P2(&m32, &k1_32, &k2_32)
+	areionpq.ExtractWitness256P2(&c256p2, &w256p2, &m32, &k1_32, &k2_32)
 	printHex("ExtractWitness256P2_C", c256p2[:])
 	printHex("ExtractWitness256P2_W", w256p2[:])
 	printBool("VerifyWitness256P2", areionpq.VerifyWitness256P2(&m32, &c256p2, &k1_32, &k2_32, &w256p2))
@@ -162,7 +165,7 @@ func main() {
 	fillPattern(m32[:], 0x17)
 	fillPattern(k1_32[:], 0x18)
 	fillPattern(k2_32[:], 0x19)
-	cem2, wem2 := areionpq.ExtractWitnessEM2_256(&m32, &k1_32, &k2_32)
+	areionpq.ExtractWitnessEM2_256(&cem2, &wem2, &m32, &k1_32, &k2_32)
 	printHex("ExtractWitnessEM2_256_C", cem2[:])
 	printHex("ExtractWitnessEM2_256_W", wem2[:])
 	printBool("VerifyWitnessEM2_256", areionpq.VerifyWitnessEM2_256(&m32, &cem2, &k1_32, &k2_32, &wem2))
@@ -444,7 +447,7 @@ def main() -> int:
             f"module godump\n\ngo 1.24\n\n"
             f"require (\n"
             f"\tgithub.com/everanium/areion v0.1.6\n"
-            f"\tgithub.com/everanium/areion-pq v0.1.1\n"
+            f"\tgithub.com/everanium/areion-pq v0.2.0\n"
             f")\n\n"
             f"replace github.com/everanium/areion => {AREION_GO_REPO}\n"
             f"replace github.com/everanium/areion-pq => {GO_REPO}\n",

@@ -184,34 +184,34 @@ Compared to 14-round `Rijndael-256` (`FAEST-EM-256`, `480 B` witness) and `FAEST
 
 | Operation | `purec` | `aesni` | `vex` | `vaesavx2` | `avx512` | `c/B` (best) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **`areion_pq_gf128_mul` (16 B)** | 38.9 (414.23 ns) | 4,712.0 (3.40 ns) | 5,072.7 (3.18 ns) | 5,033.4 (3.24 ns) | 5,076.2 (3.15 ns) | 0.71 c/B |
-| **`areion_pq_gf128_polymac` (256 B)** | 32.7 (7,830.89 ns) | 2,315.7 (110.60 ns) | 2,401.8 (106.60 ns) | 2,384.4 (107.40 ns) | 2,408.0 (106.34 ns) | 1.50 c/B |
-| **`areion_pq_extract_witness256` (288 B)** | 236.8 (1,216.79 ns) | 40,831.6 (7.07 ns) | 45,755.2 (6.31 ns) | 45,198.6 (6.39 ns) | 43,591.5 (6.64 ns) | 0.08 c/B |
-| **`areion_pq_verify_witness256` (288 B)** | 29.3 (9,897.21 ns) | 7,391.6 (39.16 ns) | 7,225.4 (39.98 ns) | 7,665.6 (37.58 ns) | 7,374.2 (39.19 ns) | 0.47 c/B |
-| **`areion_pq_extract_witness_em2_256` (576 B)** | 226.1 (2,550.25 ns) | 25,234.9 (22.86 ns) | 26,507.2 (21.89 ns) | 25,859.0 (22.37 ns) | 24,764.7 (23.30 ns) | 0.14 c/B |
-| **`areion_pq_verify_witness_em2_256` (576 B)** | 29.7 (19,389.40 ns) | 7,758.5 (74.37 ns) | 7,183.8 (81.36 ns) | 7,565.9 (76.15 ns) | 7,609.2 (75.72 ns) | 0.46 c/B |
-| **`areion_pq_kdf_expand` (1,024 B)** | 49.2 (20,813.15 ns) | 1,388.5 (739.43 ns) | 1,529.6 (671.17 ns) | 2,009.0 (510.42 ns) | 2,093.2 (490.08 ns) | 1.72 c/B |
-| **`areion_pq_tem2_siv_encrypt` (4,096 B)** | 25.6 (160,077.80 ns) | 685.9 (5,975.87 ns) | 859.2 (4,771.26 ns) | 1,391.5 (2,947.49 ns) | 1,634.4 (2,506.20 ns) | 2.20 c/B |
-| **`areion_pq_tem2_siv_decrypt` (4,096 B)** | 23.2 (176,917.97 ns) | 507.2 (8,087.56 ns) | 566.3 (7,241.70 ns) | 964.8 (4,247.27 ns) | 1,291.6 (3,173.28 ns) | 2.79 c/B |
+| **`areion_pq_gf128_mul` (16 B)** | 46.6 (345.76 ns) | 4,853.5 (3.31 ns) | 5,017.1 (3.19 ns) | 5,382.7 (2.98 ns) | 5,516.5 (2.91 ns) | 0.65 c/B |
+| **`areion_pq_gf128_polymac` (256 B)** | 33.3 (7,691.06 ns) | 2,387.5 (107.24 ns) | 2,440.4 (104.90 ns) | 2,443.0 (104.79 ns) | 2,469.9 (103.65 ns) | 1.46 c/B |
+| **`areion_pq_extract_witness256` (288 B)** | 221.3 (1,304.27 ns) | 46,314.0 (6.22 ns) | 47,533.5 (6.06 ns) | 45,366.1 (6.38 ns) | 46,080.2 (6.27 ns) | 0.08 c/B |
+| **`areion_pq_verify_witness256` (288 B)** | 29.6 (9,760.52 ns) | 14,747.6 (19.58 ns) | 15,979.8 (18.06 ns) | 15,588.2 (18.55 ns) | 15,144.3 (19.23 ns) | 0.23 c/B |
+| **`areion_pq_extract_witness_em2_256` (576 B)** | 248.8 (2,318.18 ns) | 23,905.1 (24.33 ns) | 27,604.2 (21.29 ns) | 28,893.8 (20.00 ns) | 28,813.8 (20.12 ns) | 0.13 c/B |
+| **`areion_pq_verify_witness_em2_256` (576 B)** | 30.5 (18,909.01 ns) | 13,545.3 (42.57 ns) | 13,294.6 (43.41 ns) | 12,901.9 (44.74 ns) | 12,945.4 (44.68 ns) | 0.27 c/B |
+| **`areion_pq_kdf_expand` (1,024 B)** | 48.6 (21,114.42 ns) | 1,341.4 (766.05 ns) | 1,680.5 (609.79 ns) | 2,101.9 (487.81 ns) | 2,025.6 (505.61 ns) | 1.71 c/B |
+| **`areion_pq_tem2_siv_encrypt` (4,096 B)** | 26.2 (156,385.42 ns) | 683.2 (6,020.88 ns) | 857.8 (4,776.26 ns) | 1,381.7 (2,967.79 ns) | 1,649.4 (2,484.74 ns) | 2.18 c/B |
+| **`areion_pq_tem2_siv_decrypt` (4,096 B)** | 24.2 (169,301.43 ns) | 526.0 (7,787.15 ns) | 564.8 (7,254.39 ns) | 971.4 (4,219.40 ns) | 1,274.4 (3,218.91 ns) | 2.83 c/B |
 
 #### Post-Quantum Signatures: `FAEST-Areion` & `SLH-DSA-Areion` (ops/s, ns/op)
 
 | Operation | `purec` | `aesni` | `vex` | `vaesavx2` | `avx512` | Speedup vs `purec` |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **`areion_pq_faest_sign128f`** | 27.0 (37,029,917 ns) | 603.5 (1,657,115 ns) | 597.2 (1,674,448 ns) | 786.5 (1,271,432 ns) | 768.2 (1,301,672 ns) | 29.1× |
-| **`areion_pq_faest_verify128f`** | 26.2 (38,213,417 ns) | 579.3 (1,726,260 ns) | 613.6 (1,629,703 ns) | 799.9 (1,250,234 ns) | 824.1 (1,213,500 ns) | 31.5× |
-| **`areion_pq_faest_sign256f`** | 11.6 (86,341,000 ns) | 275.1 (3,634,458 ns) | 276.9 (3,610,771 ns) | 347.1 (2,881,333 ns) | 334.0 (2,994,312 ns) | 30.0× |
-| **`areion_pq_faest_verify256f`** | 10.9 (91,767,167 ns) | 299.3 (3,341,167 ns) | 291.2 (3,434,271 ns) | 348.2 (2,871,740 ns) | 390.3 (2,562,406 ns) | 35.8× |
-| **`areion_pq_faest_em2_sign256f`** | 6.9 (144,122,000 ns) | 172.5 (5,798,208 ns) | 174.5 (5,730,458 ns) | 226.6 (4,413,229 ns) | 237.4 (4,211,708 ns) | 34.2× |
-| **`areion_pq_faest_em2_verify256f`** | 7.1 (141,421,000 ns) | 203.3 (4,918,000 ns) | 197.2 (5,072,083 ns) | 259.4 (3,855,250 ns) | 269.8 (3,706,312 ns) | 38.2× |
-| **`areion_pq_slhdsa_sign128f`** | 6.9 (145,476,750 ns) | 361.1 (2,768,958 ns) | 363.8 (2,748,385 ns) | 363.2 (2,753,490 ns) | 366.7 (2,727,198 ns) | 53.3× |
-| **`areion_pq_slhdsa_verify128f`** | 115.5 (8,656,167 ns) | 5,910.9 (169,179 ns) | 5,883.9 (169,956 ns) | 5,868.8 (170,393 ns) | 5,850.9 (170,915 ns) | 51.2× |
-| **`areion_pq_slhdsa_sign256f`** | 3.9 (256,866,333 ns) | 160.9 (6,216,854 ns) | 165.5 (6,043,458 ns) | 176.9 (5,652,062 ns) | 171.4 (5,833,146 ns) | 45.4× |
-| **`areion_pq_slhdsa_verify256f`** | 82.2 (12,159,208 ns) | 4,377.2 (228,457 ns) | 4,335.7 (230,645 ns) | 4,356.7 (229,531 ns) | 4,316.1 (231,690 ns) | 53.2× |
-| **`areion_pq_slhdsa_tem_sign256f`** | 1.6 (611,720,000 ns) | 84.4 (11,846,167 ns) | 85.3 (11,728,667 ns) | 85.3 (11,727,417 ns) | 85.4 (11,709,958 ns) | 52.2× |
-| **`areion_pq_slhdsa_tem_verify256f`** | 56.3 (17,765,917 ns) | 3,012.0 (332,009 ns) | 3,039.3 (329,021 ns) | 3,038.3 (329,137 ns) | 3,017.1 (331,440 ns) | 54.0× |
+| **`areion_pq_faest_sign128f`** | 27.0 (36,974,500 ns) | 552.8 (1,808,885 ns) | 606.7 (1,648,396 ns) | 785.7 (1,272,776 ns) | 813.8 (1,228,771 ns) | 30.1× |
+| **`areion_pq_faest_verify128f`** | 28.0 (35,736,583 ns) | 627.1 (1,594,740 ns) | 628.1 (1,592,010 ns) | 827.5 (1,208,531 ns) | 866.8 (1,153,620 ns) | 31.0× |
+| **`areion_pq_faest_sign256f`** | 11.4 (87,556,667 ns) | 265.7 (3,763,812 ns) | 265.8 (3,762,771 ns) | 326.8 (3,060,052 ns) | 360.3 (2,775,635 ns) | 31.5× |
+| **`areion_pq_faest_verify256f`** | 11.6 (86,222,500 ns) | 286.4 (3,491,333 ns) | 279.2 (3,581,208 ns) | 329.9 (3,031,167 ns) | 344.1 (2,905,833 ns) | 29.7× |
+| **`areion_pq_faest_em2_sign256f`** | 7.0 (142,550,167 ns) | 173.6 (5,759,896 ns) | 177.0 (5,650,000 ns) | 216.5 (4,619,479 ns) | 214.0 (4,673,396 ns) | 30.9× |
+| **`areion_pq_faest_em2_verify256f`** | 7.0 (142,130,167 ns) | 198.3 (5,043,500 ns) | 187.6 (5,331,812 ns) | 234.8 (4,258,708 ns) | 259.5 (3,853,646 ns) | 36.9× |
+| **`areion_pq_slhdsa_sign128f`** | 7.3 (137,675,083 ns) | 368.4 (2,714,188 ns) | 364.3 (2,745,333 ns) | 368.9 (2,710,562 ns) | 364.8 (2,740,927 ns) | 50.8× |
+| **`areion_pq_slhdsa_verify128f`** | 114.7 (8,718,479 ns) | 5,982.5 (167,154 ns) | 5,981.7 (167,176 ns) | 5,938.4 (168,395 ns) | 5,932.1 (168,576 ns) | 52.2× |
+| **`areion_pq_slhdsa_sign256f`** | 4.0 (250,967,833 ns) | 166.8 (5,995,312 ns) | 171.7 (5,823,479 ns) | 176.7 (5,659,354 ns) | 169.3 (5,907,083 ns) | 44.3× |
+| **`areion_pq_slhdsa_verify256f`** | 77.4 (12,919,125 ns) | 4,403.2 (227,105 ns) | 4,393.5 (227,611 ns) | 4,273.0 (234,030 ns) | 4,327.5 (231,079 ns) | 56.9× |
+| **`areion_pq_slhdsa_tem_sign256f`** | 1.7 (597,355,333 ns) | 85.3 (11,728,125 ns) | 85.3 (11,719,083 ns) | 85.7 (11,674,375 ns) | 85.1 (11,746,792 ns) | 51.2× |
+| **`areion_pq_slhdsa_tem_verify256f`** | 59.6 (16,765,458 ns) | 3,011.1 (332,103 ns) | 3,031.9 (329,827 ns) | 3,022.3 (330,875 ns) | 3,048.8 (327,997 ns) | 51.1× |
 
-On Intel® Core™ i7-11700K, `areion_pq_slhdsa_verify128f` completes in **`169.2 us` (`5,911 ops/s`)** and `areion_pq_slhdsa_verify256f` in **`228.5 us` (`4,377 ops/s`)**, while `areion_pq_faest_sign128f` / `areion_pq_faest_verify128f` run in **`1.27 ms` / `1.21 ms`**, `areion_pq_faest_sign256f` / `areion_pq_faest_verify256f` in **`2.88 ms` / `2.56 ms`**, `areion_pq_kdf_expand` reaches **`2,093.2 MB/s`** (`1.72 c/B`), and `areion_pq_tem2_siv_encrypt` reaches **`1,634.4 MB/s`** (`2.20 c/B`) on `avx512`.
+On Intel® Core™ i7-11700K, `areion_pq_slhdsa_verify128f` completes in **`167.2 us` (`5,983 ops/s`)** and `areion_pq_slhdsa_verify256f` in **`227.1 us` (`4,403 ops/s`)**, while `areion_pq_faest_sign128f` / `areion_pq_faest_verify128f` run in **`1.23 ms` / `1.15 ms`**, `areion_pq_faest_sign256f` / `areion_pq_faest_verify256f` in **`2.78 ms` / `2.91 ms`**, `areion_pq_kdf_expand` reaches **`2,101.9 MB/s`** (`1.71 c/B`), and `areion_pq_tem2_siv_encrypt` reaches **`1,649.4 MB/s`** (`2.18 c/B`) on `avx512`.
 
 ### 2. AWS Graviton 4 (`c8g.4xlarge`, Neoverse-V2, 16 vCPUs, ARM64)
 
@@ -221,34 +221,34 @@ On Intel® Core™ i7-11700K, `areion_pq_slhdsa_verify128f` completes in **`169.
 
 | Operation | `purec` | `arm64` | `c/B` (`arm64`) |
 | :--- | :---: | :---: | :---: |
-| **`areion_pq_gf128_mul` (16 B)** | 34.9 (458.19 ns) | 3,742.6 (4.27 ns) | 0.75 c/B |
-| **`areion_pq_gf128_polymac` (256 B)** | 44.1 (5,810.83 ns) | 1,717.5 (149.06 ns) | 1.63 c/B |
-| **`areion_pq_extract_witness256` (288 B)** | 198.6 (1,449.76 ns) | 19,493.3 (14.77 ns) | 0.14 c/B |
-| **`areion_pq_verify_witness256` (288 B)** | 30.8 (9,351.01 ns) | 4,143.2 (69.51 ns) | 0.68 c/B |
-| **`areion_pq_extract_witness_em2_256` (576 B)** | 180.6 (3,188.88 ns) | 11,770.2 (48.94 ns) | 0.24 c/B |
-| **`areion_pq_verify_witness_em2_256` (576 B)** | 31.1 (18,513.27 ns) | 4,478.6 (128.61 ns) | 0.63 c/B |
-| **`areion_pq_kdf_expand` (1,024 B)** | 42.5 (24,079.43 ns) | 1,073.8 (953.60 ns) | 2.61 c/B |
-| **`areion_pq_tem2_siv_encrypt` (4,096 B)** | 23.5 (173,932.94 ns) | 585.2 (6,998.90 ns) | 4.78 c/B |
-| **`areion_pq_tem2_siv_decrypt` (4,096 B)** | 21.5 (190,407.22 ns) | 548.5 (7,468.22 ns) | 5.11 c/B |
+| **`areion_pq_gf128_mul` (16 B)** | 36.5 (439.14 ns) | 3,745.5 (4.27 ns) | 0.75 c/B |
+| **`areion_pq_gf128_polymac` (256 B)** | 48.8 (5,241.21 ns) | 1,718.1 (149.01 ns) | 1.63 c/B |
+| **`areion_pq_extract_witness256` (288 B)** | 198.5 (1,451.15 ns) | 19,501.6 (14.77 ns) | 0.14 c/B |
+| **`areion_pq_verify_witness256` (288 B)** | 30.8 (9,352.90 ns) | 8,756.2 (32.89 ns) | 0.32 c/B |
+| **`areion_pq_extract_witness_em2_256` (576 B)** | 218.6 (2,634.85 ns) | 11,734.2 (49.09 ns) | 0.24 c/B |
+| **`areion_pq_verify_witness_em2_256` (576 B)** | 31.1 (18,510.95 ns) | 6,684.3 (86.17 ns) | 0.42 c/B |
+| **`areion_pq_kdf_expand` (1,024 B)** | 42.5 (24,071.62 ns) | 1,067.0 (959.81 ns) | 2.62 c/B |
+| **`areion_pq_tem2_siv_encrypt` (4,096 B)** | 23.6 (173,796.22 ns) | 585.8 (6,991.58 ns) | 4.78 c/B |
+| **`areion_pq_tem2_siv_decrypt` (4,096 B)** | 21.9 (187,320.64 ns) | 548.3 (7,470.99 ns) | 5.11 c/B |
 
 #### Post-Quantum Signatures: `FAEST-Areion` & `SLH-DSA-Areion` (ops/s, ns/op)
 
 | Operation | `purec` | `arm64` | Speedup vs `purec` |
 | :--- | :---: | :---: | :---: |
-| **`areion_pq_faest_sign128f`** | 24.2 (41,304,417 ns) | 472.9 (2,114,812 ns) | 19.5× |
-| **`areion_pq_faest_verify128f`** | 24.7 (40,461,000 ns) | 513.2 (1,948,615 ns) | 20.8× |
-| **`areion_pq_faest_sign256f`** | 9.8 (101,584,500 ns) | 209.0 (4,785,542 ns) | 21.2× |
-| **`areion_pq_faest_verify256f`** | 10.1 (98,929,167 ns) | 225.2 (4,439,875 ns) | 22.3× |
-| **`areion_pq_faest_em2_sign256f`** | 6.2 (161,912,167 ns) | 129.5 (7,722,417 ns) | 21.0× |
-| **`areion_pq_faest_em2_verify256f`** | 6.3 (159,009,333 ns) | 142.1 (7,037,750 ns) | 22.6× |
-| **`areion_pq_slhdsa_sign128f`** | 5.8 (172,959,167 ns) | 180.7 (5,534,396 ns) | 31.3× |
-| **`areion_pq_slhdsa_verify128f`** | 94.2 (10,618,792 ns) | 2,968.9 (336,827 ns) | 31.5× |
-| **`areion_pq_slhdsa_sign256f`** | 3.4 (294,543,833 ns) | 110.9 (9,019,292 ns) | 32.7× |
-| **`areion_pq_slhdsa_verify256f`** | 65.9 (15,180,458 ns) | 2,312.3 (432,461 ns) | 35.1× |
-| **`areion_pq_slhdsa_tem_sign256f`** | 1.4 (705,881,833 ns) | 42.6 (23,457,000 ns) | 30.1× |
-| **`areion_pq_slhdsa_tem_verify256f`** | 49.0 (20,419,750 ns) | 1,540.4 (649,188 ns) | 31.5× |
+| **`areion_pq_faest_sign128f`** | 24.5 (40,824,583 ns) | 473.1 (2,113,729 ns) | 19.3× |
+| **`areion_pq_faest_verify128f`** | 25.0 (40,046,667 ns) | 513.4 (1,947,833 ns) | 20.6× |
+| **`areion_pq_faest_sign256f`** | 10.0 (100,239,833 ns) | 208.7 (4,792,708 ns) | 20.9× |
+| **`areion_pq_faest_verify256f`** | 10.2 (98,201,667 ns) | 225.1 (4,441,750 ns) | 22.1× |
+| **`areion_pq_faest_em2_sign256f`** | 6.2 (160,186,833 ns) | 129.6 (7,716,750 ns) | 20.8× |
+| **`areion_pq_faest_em2_verify256f`** | 6.3 (157,686,167 ns) | 142.1 (7,035,917 ns) | 22.4× |
+| **`areion_pq_slhdsa_sign128f`** | 5.8 (172,348,667 ns) | 180.9 (5,528,417 ns) | 31.2× |
+| **`areion_pq_slhdsa_verify128f`** | 94.5 (10,585,188 ns) | 2,964.2 (337,359 ns) | 31.4× |
+| **`areion_pq_slhdsa_sign256f`** | 3.4 (294,538,833 ns) | 111.0 (9,012,625 ns) | 32.7× |
+| **`areion_pq_slhdsa_verify256f`** | 65.9 (15,163,500 ns) | 2,310.1 (432,875 ns) | 35.0× |
+| **`areion_pq_slhdsa_tem_sign256f`** | 1.4 (706,022,333 ns) | 42.6 (23,467,167 ns) | 30.1× |
+| **`areion_pq_slhdsa_tem_verify256f`** | 48.9 (20,445,833 ns) | 1,541.2 (648,844 ns) | 31.5× |
 
-On AWS Graviton 4 (`arm64`), `areion_pq_slhdsa_verify128f` completes in **`336.8 us` (`2,969 ops/s`)** and `areion_pq_slhdsa_verify256f` in **`432.5 us` (`2,312 ops/s`)**, while `areion_pq_faest_sign128f` / `areion_pq_faest_verify128f` run in **`2.11 ms` / `1.95 ms`** and `areion_pq_faest_sign256f` / `areion_pq_faest_verify256f` in **`4.79 ms` / `4.44 ms`**.
+On AWS Graviton 4 (`arm64`), `areion_pq_slhdsa_verify128f` completes in **`337.4 us` (`2,964 ops/s`)** and `areion_pq_slhdsa_verify256f` in **`432.9 us` (`2,310 ops/s`)**, while `areion_pq_faest_sign128f` / `areion_pq_faest_verify128f` run in **`2.11 ms` / `1.95 ms`** and `areion_pq_faest_sign256f` / `areion_pq_faest_verify256f` in **`4.79 ms` / `4.44 ms`**.
 
 ---
 

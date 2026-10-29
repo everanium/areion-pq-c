@@ -10,10 +10,6 @@
 #if defined(AREION_PQ_FORCE_PORTABLE) || defined(AREION_FORCE_PORTABLE) || \
     (!defined(__x86_64__) && !defined(_M_X64) && !defined(__aarch64__) && !defined(_M_ARM64))
 
-int areion_pq_has_hw_extract_witness256(void) {
-    return 0;
-}
-
 void areion_pq_dispatch_extract_witness256(
     uint8_t c[32], uint8_t w[288],
     const uint8_t m[32], const uint8_t k1[32], const uint8_t k2[32],

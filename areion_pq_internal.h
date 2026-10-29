@@ -111,16 +111,6 @@ static inline void areion_pq_secure_wipe(void *ptr, size_t len) {
 #endif
 }
 
-/* Constant-time byte array equality check (returns 1 if equal, 0 otherwise). */
-static inline int areion_pq_ct_eq(const uint8_t *a, const uint8_t *b, size_t len) {
-    uint32_t diff = 0U;
-    size_t i;
-    for (i = 0; i < len; i++) {
-        diff |= (uint32_t)(a[i] ^ b[i]);
-    }
-    return (int)(1U & ((diff - 1U) >> 31U));
-}
-
 #ifndef AREION_PQ_IS_LITTLE_ENDIAN
 #if (defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || \
     defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86) || \
@@ -182,6 +172,19 @@ static inline uint64_t areion_pq_load_le64(const uint8_t *p) {
            ((uint64_t)p[6] << 48U) |
            ((uint64_t)p[7] << 56U);
 #endif
+}
+
+/* Constant-time byte array equality check (returns 1 if equal, 0 otherwise). */
+static inline int areion_pq_ct_eq(const uint8_t *a, const uint8_t *b, size_t len) {
+    uint64_t diff = 0ULL;
+    size_t i = 0U;
+    for (; i + 8U <= len; i += 8U) {
+        diff |= areion_pq_load_le64(&a[i]) ^ areion_pq_load_le64(&b[i]);
+    }
+    for (; i < len; i++) {
+        diff |= (uint64_t)(a[i] ^ b[i]);
+    }
+    return (int)(1ULL & (~(diff | (0ULL - diff)) >> 63U));
 }
 
 static inline void areion_pq_store_le64(uint8_t *p, uint64_t v) {
@@ -325,28 +328,30 @@ extern void areion_pq_dump_simd_regs(uint64_t *dst, int has_avx512) AREION_PQ_IN
 extern void areion_pq_dirty_simd_reg_for_test(uint64_t masked) AREION_PQ_INTERNAL;
 
 static inline void areion_pq_clobber_scratch_gprs(void) {
-#if (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64))
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__AVX512F__)
     if (areion_pq_active_tier() == AREION_PQ_TIER_AVX512) {
         __asm__ __volatile__(
-            "vpxord %%zmm16, %%zmm16, %%zmm16\n\t"
-            "vpxord %%zmm17, %%zmm17, %%zmm17\n\t"
-            "vpxord %%zmm18, %%zmm18, %%zmm18\n\t"
-            "vpxord %%zmm19, %%zmm19, %%zmm19\n\t"
-            "vpxord %%zmm20, %%zmm20, %%zmm20\n\t"
-            "vpxord %%zmm21, %%zmm21, %%zmm21\n\t"
-            "vpxord %%zmm22, %%zmm22, %%zmm22\n\t"
-            "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
-            "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
-            "vpxord %%zmm25, %%zmm25, %%zmm25\n\t"
-            "vpxord %%zmm26, %%zmm26, %%zmm26\n\t"
-            "vpxord %%zmm27, %%zmm27, %%zmm27\n\t"
-            "vpxord %%zmm28, %%zmm28, %%zmm28\n\t"
-            "vpxord %%zmm29, %%zmm29, %%zmm29\n\t"
-            "vpxord %%zmm30, %%zmm30, %%zmm30\n\t"
-            "vpxord %%zmm31, %%zmm31, %%zmm31\n\t"
+            "vpxord %%xmm16, %%xmm16, %%xmm16\n\t"
+            "vpxord %%xmm17, %%xmm17, %%xmm17\n\t"
+            "vpxord %%xmm18, %%xmm18, %%xmm18\n\t"
+            "vpxord %%xmm19, %%xmm19, %%xmm19\n\t"
+            "vpxord %%xmm20, %%xmm20, %%xmm20\n\t"
+            "vpxord %%xmm21, %%xmm21, %%xmm21\n\t"
+            "vpxord %%xmm22, %%xmm22, %%xmm22\n\t"
+            "vpxord %%xmm23, %%xmm23, %%xmm23\n\t"
+            "vpxord %%xmm24, %%xmm24, %%xmm24\n\t"
+            "vpxord %%xmm25, %%xmm25, %%xmm25\n\t"
+            "vpxord %%xmm26, %%xmm26, %%xmm26\n\t"
+            "vpxord %%xmm27, %%xmm27, %%xmm27\n\t"
+            "vpxord %%xmm28, %%xmm28, %%xmm28\n\t"
+            "vpxord %%xmm29, %%xmm29, %%xmm29\n\t"
+            "vpxord %%xmm30, %%xmm30, %%xmm30\n\t"
+            "vpxord %%xmm31, %%xmm31, %%xmm31\n\t"
             "vzeroupper"
             : : : "memory");
     }
+#elif (defined(__GNUC__) || defined(__clang__)) && defined(__AVX__)
+    __asm__ __volatile__("vzeroupper" : : : "memory");
 #endif
     areion_pq_clobber_scratch_gprs_asm();
 }
@@ -389,7 +394,14 @@ AREION_PQ_INTERNAL void areion_pq_wots_chain256x4_purec(
  * Dispatched Hardware/Software Hooks (areion_pq_{amd64,arm64,other}.c)
  * ========================================================================= */
 
-AREION_PQ_INTERNAL int areion_pq_has_hw_extract_witness256(void);
+static inline int areion_pq_has_hw_extract_witness256(void) {
+#if !defined(AREION_PQ_FORCE_PORTABLE) && !defined(AREION_FORCE_PORTABLE) && \
+    (defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64))
+    return (areion_pq_active_tier() != AREION_PQ_TIER_PUREC) ? 1 : 0;
+#else
+    return 0;
+#endif
+}
 
 AREION_PQ_INTERNAL void areion_pq_dispatch_extract_witness256(
     uint8_t c[32], uint8_t w[288],
