@@ -17,9 +17,25 @@
 #endif
 
 /* Internal state values:
- * -2 = uninitialized
- * >= 1 = active areion_pq_tier_t */
-static int g_active_pq_tier = -2;
+ * areion_pq_g_active_tier holds (int)active areion_pq_tier_t (defaults to
+ * AREION_PQ_TIER_PUREC until areion_pq_cpu_early_init / init_active_pq_tier runs). */
+#if defined(_MSC_VER)
+volatile long areion_pq_g_active_tier = (long)AREION_PQ_TIER_PUREC;
+volatile long areion_pq_g_has_pclmul = 0;
+volatile long areion_pq_g_has_vpclmul = 0;
+volatile long areion_pq_g_has_pmull = 0;
+#elif defined(__GNUC__) || defined(__clang__)
+int areion_pq_g_active_tier = (int)AREION_PQ_TIER_PUREC;
+int areion_pq_g_has_pclmul = 0;
+int areion_pq_g_has_vpclmul = 0;
+int areion_pq_g_has_pmull = 0;
+#else
+volatile int areion_pq_g_active_tier = (int)AREION_PQ_TIER_PUREC;
+volatile int areion_pq_g_has_pclmul = 0;
+volatile int areion_pq_g_has_vpclmul = 0;
+volatile int areion_pq_g_has_pmull = 0;
+#endif
+static int g_active_pq_tier_init_done = 0;
 static int g_hw_pq_tier = -2;
 
 static int atomic_load_int(const int *p) {
@@ -39,6 +55,38 @@ static void atomic_store_int(int *p, int v) {
     (void)InterlockedExchange((volatile LONG *)p, (LONG)v);
 #else
     *(volatile int *)p = v;
+#endif
+}
+
+static void atomic_store_active_pq_tier(int v) {
+#if defined(_MSC_VER)
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_active_tier, (LONG)v);
+#elif defined(__GNUC__) || defined(__clang__)
+    __atomic_store_n(&areion_pq_g_active_tier, v, __ATOMIC_RELEASE);
+#elif defined(_WIN32)
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_active_tier, (LONG)v);
+#else
+    areion_pq_g_active_tier = v;
+#endif
+}
+
+static void atomic_store_pq_hw_flags(int pclmul, int vpclmul, int pmull) {
+#if defined(_MSC_VER)
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_has_pclmul, (LONG)pclmul);
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_has_vpclmul, (LONG)vpclmul);
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_has_pmull, (LONG)pmull);
+#elif defined(__GNUC__) || defined(__clang__)
+    __atomic_store_n(&areion_pq_g_has_pclmul, pclmul, __ATOMIC_RELEASE);
+    __atomic_store_n(&areion_pq_g_has_vpclmul, vpclmul, __ATOMIC_RELEASE);
+    __atomic_store_n(&areion_pq_g_has_pmull, pmull, __ATOMIC_RELEASE);
+#elif defined(_WIN32)
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_has_pclmul, (LONG)pclmul);
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_has_vpclmul, (LONG)vpclmul);
+    (void)InterlockedExchange((volatile LONG *)&areion_pq_g_has_pmull, (LONG)pmull);
+#else
+    areion_pq_g_has_pclmul = pclmul;
+    areion_pq_g_has_vpclmul = vpclmul;
+    areion_pq_g_has_pmull = pmull;
 #endif
 }
 
@@ -144,6 +192,10 @@ static areion_pq_tier_t get_hw_pq_tier(void) {
     int hw = atomic_load_int(&g_hw_pq_tier);
     if (hw < 0) {
         hw = (int)areion_pq_detect_hardware_tier();
+        atomic_store_pq_hw_flags(
+            areion_pq_detect_pclmul() ? 1 : 0,
+            areion_pq_detect_vpclmul() ? 1 : 0,
+            areion_pq_detect_pmull() ? 1 : 0);
         atomic_store_int(&g_hw_pq_tier, hw);
     }
     return (areion_pq_tier_t)hw;
@@ -161,16 +213,16 @@ static areion_pq_tier_t init_active_pq_tier(void) {
         }
     }
     (void)areion_set_tier_override(pq_tier_to_base_tier(selected));
-    atomic_store_int(&g_active_pq_tier, (int)selected);
+    atomic_store_active_pq_tier((int)selected);
+    atomic_store_int(&g_active_pq_tier_init_done, 1);
     return selected;
 }
 
 areion_pq_tier_t areion_pq_tier_code(void) {
-    int cur = atomic_load_int(&g_active_pq_tier);
-    if (cur < 0) {
+    if (atomic_load_int(&g_active_pq_tier_init_done) == 0) {
         return init_active_pq_tier();
     }
-    return (areion_pq_tier_t)cur;
+    return areion_pq_active_tier();
 }
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -250,7 +302,8 @@ int areion_pq_set_tier_code(areion_pq_tier_t id) {
             }
         }
         (void)areion_set_tier_override(pq_tier_to_base_tier(selected));
-        atomic_store_int(&g_active_pq_tier, (int)selected);
+        atomic_store_active_pq_tier((int)selected);
+        atomic_store_int(&g_active_pq_tier_init_done, 1);
         return 0;
     }
     if (!areion_pq_tier_supported(id)) {
@@ -259,7 +312,8 @@ int areion_pq_set_tier_code(areion_pq_tier_t id) {
     if (!areion_set_tier_override(pq_tier_to_base_tier(id))) {
         return -1;
     }
-    atomic_store_int(&g_active_pq_tier, (int)id);
+    atomic_store_active_pq_tier((int)id);
+    atomic_store_int(&g_active_pq_tier_init_done, 1);
     return 0;
 }
 

@@ -2,7 +2,7 @@
 # Dual-licensed under Apache-2.0 OR MIT.
 
 cmake_minimum_required(VERSION 3.16)
-project(areion_pq VERSION 0.1.0 LANGUAGES C ASM)
+project(areion_pq VERSION 0.1.1 LANGUAGES C ASM)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)

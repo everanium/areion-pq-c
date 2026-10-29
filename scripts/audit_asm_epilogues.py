@@ -78,6 +78,55 @@ def strip_c_comments(text: str) -> str:
     return "\n".join(out)
 
 
+def eval_abi_lines(body: str, win64: bool) -> list[str]:
+    out = []
+    state = "BOTH"
+    for raw in body.splitlines():
+        s = raw.strip()
+        if not s:
+            continue
+        if s in ("#if !defined(_WIN64)", "#ifndef _WIN64"):
+            state = "SYSV"
+            continue
+        if s in ("#if defined(_WIN64)", "#ifdef _WIN64"):
+            state = "WIN64"
+            continue
+        if s == "#else":
+            state = "WIN64" if state == "SYSV" else "SYSV"
+            continue
+        if s.startswith("#endif"):
+            state = "BOTH"
+            continue
+        if state == "BOTH" or (win64 and state == "WIN64") or (not win64 and state == "SYSV"):
+            out.append(s)
+    return out
+
+
+X86_GPR_MAP = {
+    "rax": "rax", "eax": "rax", "ax": "rax", "al": "rax", "ah": "rax",
+    "rcx": "rcx", "ecx": "rcx", "cx": "rcx", "cl": "rcx", "ch": "rcx",
+    "rdx": "rdx", "edx": "rdx", "dx": "rdx", "dl": "rdx", "dh": "rdx",
+    "rsi": "rsi", "esi": "rsi", "si": "rsi", "sil": "rsi",
+    "rdi": "rdi", "edi": "rdi", "di": "rdi", "dil": "rdi",
+    "r8": "r8", "r8d": "r8", "r8w": "r8", "r8b": "r8",
+    "r9": "r9", "r9d": "r9", "r9w": "r9", "r9b": "r9",
+    "r10": "r10", "r10d": "r10", "r10w": "r10", "r10b": "r10",
+    "r11": "r11", "r11d": "r11", "r11w": "r11", "r11b": "r11",
+}
+X86_GPR_RE = "|".join(sorted(X86_GPR_MAP.keys(), key=len, reverse=True))
+
+
+def split_body_and_epilogue(lines: list[str], zero_re: re.Pattern[str]) -> tuple[str, str]:
+    idx = len(lines)
+    while idx > 0:
+        ln = lines[idx - 1].strip()
+        if ln in ("ret", "retq", "vzeroupper") or ln.endswith(":") or zero_re.match(ln):
+            idx -= 1
+        else:
+            break
+    return "\n".join(lines[:idx]), "\n".join(lines[idx:])
+
+
 def audit_c_amd64_S_and_masm() -> int:
     s_name = "areion_pq_amd64.S"
     masm_name = "areion_pq_amd64.asm"
@@ -88,6 +137,15 @@ def audit_c_amd64_S_and_masm() -> int:
     masm_blocks = re.findall(r"(\w+)\s+PROC\b(.*?)\1\s+ENDP", masm_text, flags=re.S)
     assert [b[0] for b in s_blocks] == [b[0] for b in masm_blocks], (
         f"Function list mismatch between {s_name} and {masm_name}"
+    )
+
+    att_zero_re = re.compile(
+        r"^(?:(?:pxor|vpxor|vpxord|vpxorq)\s+%[xyz]mm(\d+),\s*%[xyz]mm\1(?:,\s*%[xyz]mm\1)?|"
+        r"xorq\s+%(rax|rcx|rdx|rsi|rdi|r8|r9|r10|r11),\s*%\2)$"
+    )
+    masm_zero_re = re.compile(
+        r"^(?:(?:pxor|vpxor|vpxord|vpxorq)\s+[xyz]mm(\d+),\s*[xyz]mm\1(?:,\s*[xyz]mm\1)?|"
+        r"xor\s+(rax|rcx|rdx|rsi|rdi|r8|r9|r10|r11),\s*\2)$"
     )
 
     total_s = 0
@@ -149,23 +207,51 @@ def audit_c_amd64_S_and_masm() -> int:
                     assert f"mov {g}, QWORD PTR [rsp + {off}]" in m_body, f"{masm_name}:{fn} missing Win64 restore for {g}"
                     assert f"mov QWORD PTR [rsp + {off}], 0" in m_body, f"{masm_name}:{fn} missing Win64 stack wipe for {g}"
 
-        s_core = re.sub(r"#if[^\n]*\n.*?\n#endif", "", s_body, flags=re.S)
-        all_vec = set(int(x) for x in re.findall(r"%[xyz]mm(\d+)\b", s_core))
-        zeroed_vec = set(
-            int(m.group(1))
-            for m in re.finditer(r"\b(?:pxor|vpxor|vpxord|vpxorq)\s+%[xyz]mm(\d+),\s*%[xyz]mm\1(?:,\s*%[xyz]mm\1)?\b", s_body)
-        )
-        assert all_vec <= zeroed_vec, f"{s_name}:{fn} unzeroed vector regs: {sorted(all_vec - zeroed_vec)}"
+        for abi_label, is_win64 in (("SysV", False), ("_WIN64", True)):
+            abi_lines = eval_abi_lines(s_body, is_win64)
+            core_txt, epi_txt = split_body_and_epilogue(abi_lines, att_zero_re)
+            all_vec = set(int(x) for x in re.findall(r"%[xyz]mm(\d+)\b", core_txt))
+            zeroed_vec = set(
+                int(m.group(1))
+                for m in re.finditer(r"\b(?:pxor|vpxor|vpxord|vpxorq)\s+%[xyz]mm(\d+),\s*%[xyz]mm\1(?:,\s*%[xyz]mm\1)?\b", epi_txt)
+            )
+            unzero_v = sorted(all_vec - zeroed_vec)
+            extra_v = sorted(zeroed_vec - all_vec)
+            assert not unzero_v and not extra_v, (
+                f"{s_name}:{fn} [{abi_label}] vector parity mismatch: unzero_v={unzero_v}, extra_v={extra_v}"
+            )
 
-        all_gpr = set(re.findall(r"%(rax|rcx|rdx|rsi|rdi|r8|r9|r10|r11)\b", s_core))
-        zeroed_gpr = set(
-            m.group(1)
-            for m in re.finditer(r"\bxorq\s+%(rax|rcx|rdx|rsi|rdi|r8|r9|r10|r11),\s*%\1\b", s_body)
+            all_gpr = set(X86_GPR_MAP[r] for r in re.findall(rf"%({X86_GPR_RE})\b", core_txt))
+            zeroed_gpr = set(
+                m.group(1)
+                for m in re.finditer(r"\bxorq\s+%(rax|rcx|rdx|rsi|rdi|r8|r9|r10|r11),\s*%\1\b", epi_txt)
+            )
+            unzero_g = sorted(all_gpr - zeroed_gpr)
+            extra_g = sorted(zeroed_gpr - all_gpr)
+            assert not unzero_g and not extra_g, (
+                f"{s_name}:{fn} [{abi_label}] GPR parity mismatch: unzero_g={unzero_g}, extra_g={extra_g}"
+            )
+
+        m_lines = [l.strip() for l in m_body.splitlines() if l.strip()]
+        m_core_txt, m_epi_txt = split_body_and_epilogue(m_lines[1:], masm_zero_re)
+        m_all_vec = set(int(x) for x in re.findall(r"\b[xyz]mm(\d+)\b", m_core_txt))
+        m_zeroed_vec = set(
+            int(m.group(1))
+            for m in re.finditer(r"\b(?:pxor|vpxor|vpxord|vpxorq)\s+[xyz]mm(\d+),\s*[xyz]mm\1(?:,\s*[xyz]mm\1)?\b", m_epi_txt)
         )
-        assert all_gpr <= zeroed_gpr, f"{s_name}:{fn} unzeroed GPRs: {sorted(all_gpr - zeroed_gpr)}"
+        assert m_all_vec == m_zeroed_vec, (
+            f"{masm_name}:{fn} vector parity mismatch: unzero_v={sorted(m_all_vec - m_zeroed_vec)}, extra_v={sorted(m_zeroed_vec - m_all_vec)}"
+        )
+        m_all_gpr = set(X86_GPR_MAP[r] for r in re.findall(rf"\b({X86_GPR_RE})\b", m_core_txt))
+        m_zeroed_gpr = set(
+            m.group(1)
+            for m in re.finditer(r"\bxor\s+(rax|rcx|rdx|rsi|rdi|r8|r9|r10|r11),\s*\1\b", m_epi_txt)
+        )
+        assert m_all_gpr == m_zeroed_gpr, (
+            f"{masm_name}:{fn} GPR parity mismatch: unzero_g={sorted(m_all_gpr - m_zeroed_gpr)}, extra_g={sorted(m_zeroed_gpr - m_all_gpr)}"
+        )
 
         uses_wide_vec = bool(re.search(r"\b[yz]mm\d+\b|\bxmm(?:1[6-9]|2\d|3[01])\b", m_body))
-        m_lines = [l.strip() for l in m_body.splitlines() if l.strip()]
         assert m_lines[0] == "db 0F3h, 00Fh, 01Eh, 0FAh ; endbr64", (
             f"{masm_name}:{fn} does not start with endbr64 (got {m_lines[0]})"
         )
@@ -179,8 +265,8 @@ def audit_c_amd64_S_and_masm() -> int:
         f"Missing x86 PQ kernels: {set(EXPECTED_X86_KERNELS) - found_x86}"
     )
     print(
-        f"OK [C amd64 .S & msvc/{masm_name}]: Audited {total_s} .S functions and {total_masm} MASM PROC functions. "
-        f"100% ABI & epilogue clean."
+        f"OK [C amd64 .S & msvc/{masm_name}]: Audited {total_s} .S functions (SysV + _WIN64) and {total_masm} MASM PROC functions. "
+        f"100% ABI & epilogue clean (unzero_v=0, extra_v=0, unzero_g=0, extra_g=0)."
     )
     return total_s
 
@@ -193,6 +279,10 @@ def audit_c_arm64_S_and_armasm() -> int:
     m_blocks = re.findall(r"(\w+)\s+PROC\b(.*?)ENDP", m_text, flags=re.S)
     assert [b[0] for b in s_blocks] == [b[0] for b in m_blocks], (
         "Function list mismatch between areion_pq_arm64.S and msvc/areion_pq_arm64.asm"
+    )
+
+    arm_zero_re = re.compile(
+        r"^(?:eor\s+v(\d+)\.16b,\s*v\1\.16b,\s*v\1\.16b|mov\s+x(\d+),\s*xzr)$"
     )
 
     total = 0
@@ -211,26 +301,33 @@ def audit_c_arm64_S_and_armasm() -> int:
         assert not touched_v_callee, f"areion_pq_arm64.S:{fn} touches callee-saved v8..v15: {touched_v_callee}"
         assert not re.search(r"\b(?:sub|add)\s+sp,\s*sp\b", s_body), f"areion_pq_arm64.S:{fn} allocates stack frame"
 
-        all_v = set(int(v) for v in re.findall(r"\bv(\d+)\b", s_body))
-        zeroed_v = set(
-            int(m.group(1))
-            for m in re.finditer(r"\beor\s+v(\d+)\.16b,\s*v\1\.16b,\s*v\1\.16b\b", s_body)
-        )
-        assert all_v == zeroed_v, f"areion_pq_arm64.S:{fn} unzeroed V-regs: {sorted(all_v - zeroed_v)}"
+        for src_label, body_txt in (("areion_pq_arm64.S", s_body), ("msvc/areion_pq_arm64.asm", m_body)):
+            lines = [l.strip() for l in body_txt.splitlines() if l.strip() and not l.strip().startswith("hint")]
+            core_txt, epi_txt = split_body_and_epilogue(lines, arm_zero_re)
+            all_v = set(int(v) for v in re.findall(r"\bv(\d+)\b", core_txt))
+            zeroed_v = set(
+                int(m.group(1))
+                for m in re.finditer(r"\beor\s+v(\d+)\.16b,\s*v\1\.16b,\s*v\1\.16b\b", epi_txt)
+            )
+            assert all_v == zeroed_v, (
+                f"{src_label}:{fn} V-reg parity mismatch: unzero_v={sorted(all_v - zeroed_v)}, extra_v={sorted(zeroed_v - all_v)}"
+            )
 
-        all_x = set(int(r) for r in re.findall(r"\b[xw](\d+)\b", s_body))
-        zeroed_x = set(
-            int(m.group(1))
-            for m in re.finditer(r"\bmov\s+x(\d+),\s*xzr\b", s_body)
-        )
-        assert all_x == zeroed_x, f"areion_pq_arm64.S:{fn} unzeroed X-regs: {sorted(all_x - zeroed_x)}"
+            all_x = set(int(r) for r in re.findall(r"\b[xw](\d+)\b", core_txt))
+            zeroed_x = set(
+                int(m.group(1))
+                for m in re.finditer(r"\bmov\s+x(\d+),\s*xzr\b", epi_txt)
+            )
+            assert all_x == zeroed_x, (
+                f"{src_label}:{fn} X-reg parity mismatch: unzero_g={sorted(all_x - zeroed_x)}, extra_g={sorted(zeroed_x - all_x)}"
+            )
 
     assert found_arm64 == set(EXPECTED_ARM64_KERNELS), (
         f"Missing arm64 PQ kernels: {set(EXPECTED_ARM64_KERNELS) - found_arm64}"
     )
     print(
         f"OK [C arm64 .S & msvc/areion_pq_arm64.asm]: Audited {total} functions. "
-        f"100% stackless AAPCS64 ABI & epilogue clean."
+        f"100% stackless AAPCS64 ABI & epilogue clean (unzero_v=0, extra_v=0, unzero_g=0, extra_g=0)."
     )
     return total
 

@@ -50,25 +50,23 @@ static AREION_PQ_NOINLINE AREION_PQ_NO_STACK_PROTECTOR void areion_pq_wipe_softw
 }
 
 static inline void pq_xor16(uint8_t dst[16], const uint8_t a[16], const uint8_t b[16]) {
-    uint64_t lo = areion_pq_load_le64(&a[0]) ^ areion_pq_load_le64(&b[0]);
-    uint64_t hi = areion_pq_load_le64(&a[8]) ^ areion_pq_load_le64(&b[8]);
-    areion_pq_store_le64(&dst[0], lo);
-    areion_pq_store_le64(&dst[8], hi);
+    size_t i;
+    for (i = 0U; i < 16U; i++) {
+        dst[i] = (uint8_t)(a[i] ^ b[i]);
+    }
 }
 
 static inline void pq_xor32(uint8_t dst[32], const uint8_t a[32], const uint8_t b[32]) {
     size_t i;
-    for (i = 0U; i < 32U; i += 8U) {
-        uint64_t v = areion_pq_load_le64(&a[i]) ^ areion_pq_load_le64(&b[i]);
-        areion_pq_store_le64(&dst[i], v);
+    for (i = 0U; i < 32U; i++) {
+        dst[i] = (uint8_t)(a[i] ^ b[i]);
     }
 }
 
 static inline void pq_xor64(uint8_t dst[64], const uint8_t a[64], const uint8_t b[64]) {
     size_t i;
-    for (i = 0U; i < 64U; i += 8U) {
-        uint64_t v = areion_pq_load_le64(&a[i]) ^ areion_pq_load_le64(&b[i]);
-        areion_pq_store_le64(&dst[i], v);
+    for (i = 0U; i < 64U; i++) {
+        dst[i] = (uint8_t)(a[i] ^ b[i]);
     }
 }
 
@@ -346,8 +344,6 @@ static void pq_bs_mix_columns(uint64_t q[8]) {
     q[5] = a[4] ^ b[5];
     q[6] = a[5] ^ b[6];
     q[7] = a[6] ^ b[7];
-    areion_pq_secure_wipe(a, sizeof(a));
-    areion_pq_secure_wipe(b, sizeof(b));
 }
 
 static void pq_bs_inv_mix_columns(uint64_t q[8]) {
@@ -382,9 +378,6 @@ static void pq_bs_inv_mix_columns(uint64_t q[8]) {
     q[5] ^= u[5] ^ f[4];
     q[6] ^= u[6] ^ f[5];
     q[7] ^= u[7] ^ f[6];
-    areion_pq_secure_wipe(d, sizeof(d));
-    areion_pq_secure_wipe(u, sizeof(u));
-    areion_pq_secure_wipe(f, sizeof(f));
 }
 
 static void pq_soft_inv_shift_rows(uint8_t out[16], const uint8_t in[16]) {
@@ -392,7 +385,6 @@ static void pq_soft_inv_shift_rows(uint8_t out[16], const uint8_t in[16]) {
     pq_bs_pack1(q, in);
     pq_bs_inv_shift_rows(q);
     pq_bs_unpack1(q, out);
-    areion_pq_secure_wipe(q, sizeof(q));
 }
 
 static void pq_soft_mix_columns(uint8_t out[16], const uint8_t in[16]) {
@@ -400,7 +392,6 @@ static void pq_soft_mix_columns(uint8_t out[16], const uint8_t in[16]) {
     pq_bs_pack1(q, in);
     pq_bs_mix_columns(q);
     pq_bs_unpack1(q, out);
-    areion_pq_secure_wipe(q, sizeof(q));
 }
 
 static void pq_soft_inv_mix_columns(uint8_t out[16], const uint8_t in[16]) {
@@ -408,7 +399,6 @@ static void pq_soft_inv_mix_columns(uint8_t out[16], const uint8_t in[16]) {
     pq_bs_pack1(q, in);
     pq_bs_inv_mix_columns(q);
     pq_bs_unpack1(q, out);
-    areion_pq_secure_wipe(q, sizeof(q));
 }
 
 /* =========================================================================
@@ -464,14 +454,6 @@ static AREION_PQ_NOINLINE void pq_extract_witness256_purec_body(
 
     pq_xor16(&c[0], x0, &k2[0]);
     pq_xor16(&c[16], x1, &k2[16]);
-
-    areion_pq_secure_wipe(x0, sizeof(x0));
-    areion_pq_secure_wipe(x1, sizeof(x1));
-    areion_pq_secure_wipe(a_next, sizeof(a_next));
-    areion_pq_secure_wipe(u, sizeof(u));
-    areion_pq_secure_wipe(b_next, sizeof(b_next));
-    areion_pq_secure_wipe(q, sizeof(q));
-    areion_pq_secure_wipe(q_rc, sizeof(q_rc));
 }
 
 void areion_pq_extract_witness256_purec(
@@ -547,11 +529,6 @@ static AREION_PQ_NOINLINE void pq_gf128_polymac_purec_body(
         pq_xor16(cur, cur, prod);
     }
     memcpy(acc, cur, 16U);
-
-    areion_pq_secure_wipe(ai, sizeof(ai));
-    areion_pq_secure_wipe(bi, sizeof(bi));
-    areion_pq_secure_wipe(prod, sizeof(prod));
-    areion_pq_secure_wipe(cur, sizeof(cur));
 }
 
 void areion_pq_gf128_polymac_purec(
@@ -717,17 +694,6 @@ static AREION_PQ_NOINLINE void pq_gf256_field_mul_body(
 
     pq_xor16(&out[0], p0, p1_alpha);
     pq_xor16(&out[16], pm, p0);
-
-    areion_pq_secure_wipe(a0, sizeof(a0));
-    areion_pq_secure_wipe(a1, sizeof(a1));
-    areion_pq_secure_wipe(b0, sizeof(b0));
-    areion_pq_secure_wipe(b1, sizeof(b1));
-    areion_pq_secure_wipe(a01, sizeof(a01));
-    areion_pq_secure_wipe(b01, sizeof(b01));
-    areion_pq_secure_wipe(p0, sizeof(p0));
-    areion_pq_secure_wipe(p1, sizeof(p1));
-    areion_pq_secure_wipe(pm, sizeof(pm));
-    areion_pq_secure_wipe(p1_alpha, sizeof(p1_alpha));
 }
 
 void areion_pq_gf256_field_mul(uint8_t out[32], const uint8_t a[32], const uint8_t b[32]) {
@@ -743,8 +709,6 @@ static AREION_PQ_NOINLINE void pq_mul_ortho256_body(
     areion_pq_dispatch_gf128_mul_nowipe(r1, &t[16], &k[16]);
     memcpy(&out[0], r0, 16U);
     memcpy(&out[16], r1, 16U);
-    areion_pq_secure_wipe(r0, sizeof(r0));
-    areion_pq_secure_wipe(r1, sizeof(r1));
 }
 
 void areion_pq_mul_ortho256(uint8_t out[32], const uint8_t t[32], const uint8_t k[32]) {
@@ -759,8 +723,6 @@ static AREION_PQ_NOINLINE void pq_ortho_sigma256_body(uint8_t out[32], const uin
     memcpy(k1, &k[16], 16U);
     memcpy(&out[0], k1, 16U);
     pq_xor16(&out[16], k0, k1);
-    areion_pq_secure_wipe(k0, sizeof(k0));
-    areion_pq_secure_wipe(k1, sizeof(k1));
 }
 
 void areion_pq_ortho_sigma256(uint8_t out[32], const uint8_t k[32]) {
@@ -840,20 +802,6 @@ static AREION_PQ_NOINLINE int pq_verify_witness256_purec_body(
             memcpy(x0, b_next, 16U);
         }
     }
-
-    areion_pq_secure_wipe(x0, sizeof(x0));
-    areion_pq_secure_wipe(x1, sizeof(x1));
-    areion_pq_secure_wipe(a, sizeof(a));
-    areion_pq_secure_wipe(b, sizeof(b));
-    areion_pq_secure_wipe(a_next, sizeof(a_next));
-    areion_pq_secure_wipe(b_next, sizeof(b_next));
-    areion_pq_secure_wipe(t, sizeof(t));
-    areion_pq_secure_wipe(x_l1, sizeof(x_l1));
-    areion_pq_secure_wipe(s_l1, sizeof(s_l1));
-    areion_pq_secure_wipe(x_l2, sizeof(x_l2));
-    areion_pq_secure_wipe(s_l2, sizeof(s_l2));
-    areion_pq_secure_wipe(tmp_mc, sizeof(tmp_mc));
-    areion_pq_secure_wipe(tmp_imc, sizeof(tmp_imc));
 
     return (int)(1U & ((diff - 1U) >> 31U));
 }
@@ -947,16 +895,6 @@ static AREION_PQ_NOINLINE int pq_verify_witness_em2_256_purec_body(
 
     ok1 = pq_verify_witness256_purec_body(m, u_p1, k1, zero32, &w[0], areion_pq_rc_p1);
     ok2 = pq_verify_witness256_purec_body(u_p1, c, k2, k12, &w[288], areion_pq_rc_p2);
-
-    areion_pq_secure_wipe(x0, sizeof(x0));
-    areion_pq_secure_wipe(x1, sizeof(x1));
-    areion_pq_secure_wipe(a_next9, sizeof(a_next9));
-    areion_pq_secure_wipe(u9, sizeof(u9));
-    areion_pq_secure_wipe(b_next9, sizeof(b_next9));
-    areion_pq_secure_wipe(u_p1, sizeof(u_p1));
-    areion_pq_secure_wipe(k12, sizeof(k12));
-    areion_pq_secure_wipe(q, sizeof(q));
-    areion_pq_secure_wipe(q_rc, sizeof(q_rc));
 
     return (ok1 != 0 && ok2 != 0) ? 1 : 0;
 }
@@ -1244,16 +1182,16 @@ static AREION_PQ_NOINLINE void pq_tem2_siv_encrypt_body(
     k_enc[0] ^= 0x5AU;
     for (lane = 0U; lane < 4U; lane++) {
         memcpy(keys4[lane], k_enc, 128U);
+        memcpy(&tweaks4[lane][0], tag, 32U);
+        memcpy(&tweaks4[lane][32], &nonce[0], 16U);
+        areion_pq_store_le64(&tweaks4[lane][56], UINT64_C(0x54454D3253495601));
     }
 
     blk_idx = 0U;
     off = 0U;
     while (off + 256U <= pt_len) {
         for (lane = 0U; lane < 4U; lane++) {
-            memcpy(&tweaks4[lane][0], tag, 32U);
-            memcpy(&tweaks4[lane][32], &nonce[0], 16U);
             areion_pq_store_le64(&tweaks4[lane][48], blk_idx + (uint64_t)lane);
-            areion_pq_store_le64(&tweaks4[lane][56], UINT64_C(0x54454D3253495601));
             memcpy(msgs4[lane], &plaintext[off + 64U * (size_t)lane], 64U);
         }
         areion_tem2_encrypt512x4(
@@ -1334,16 +1272,16 @@ static AREION_PQ_NOINLINE int pq_tem2_siv_decrypt_body(
     k_enc[0] ^= 0x5AU;
     for (lane = 0U; lane < 4U; lane++) {
         memcpy(keys4[lane], k_enc, 128U);
+        memcpy(&tweaks4[lane][0], tag, 32U);
+        memcpy(&tweaks4[lane][32], &nonce[0], 16U);
+        areion_pq_store_le64(&tweaks4[lane][56], UINT64_C(0x54454D3253495601));
     }
 
     blk_idx = 0U;
     off = 0U;
     while (off + 256U <= ct_len) {
         for (lane = 0U; lane < 4U; lane++) {
-            memcpy(&tweaks4[lane][0], tag, 32U);
-            memcpy(&tweaks4[lane][32], &nonce[0], 16U);
             areion_pq_store_le64(&tweaks4[lane][48], blk_idx + (uint64_t)lane);
-            areion_pq_store_le64(&tweaks4[lane][56], UINT64_C(0x54454D3253495601));
             memcpy(cts4[lane], &ciphertext[off + 64U * (size_t)lane], 64U);
         }
         areion_tem2_decrypt512x4(
@@ -1422,7 +1360,6 @@ static AREION_PQ_NOINLINE void pq_hpke_derive_keys_body(
     pq_kdf_expand_body(buf, sizeof(buf), shared_secret, 32U, info, info_len);
     memcpy(dem_key, &buf[0], 128U);
     memcpy(base_nonce, &buf[128], 32U);
-    areion_pq_secure_wipe(buf, sizeof(buf));
 }
 
 void areion_pq_hpke_derive_keys(
@@ -1448,9 +1385,6 @@ static AREION_PQ_NOINLINE void pq_hpke_seal_det_body(
     w0 = areion_pq_load_le64(&nonce[0]) ^ seq;
     areion_pq_store_le64(&nonce[0], w0);
     pq_tem2_siv_encrypt_body(ciphertext, tag, dem_key, nonce, ad, ad_len, plaintext, pt_len);
-
-    areion_pq_secure_wipe(dem_key, sizeof(dem_key));
-    areion_pq_secure_wipe(nonce, sizeof(nonce));
 }
 
 void areion_pq_hpke_seal_det(
@@ -1481,9 +1415,6 @@ static AREION_PQ_NOINLINE int pq_hpke_open_det_body(
     w0 = areion_pq_load_le64(&nonce[0]) ^ seq;
     areion_pq_store_le64(&nonce[0], w0);
     ok = pq_tem2_siv_decrypt_body(plaintext, dem_key, nonce, ad, ad_len, ciphertext, ct_len, tag);
-
-    areion_pq_secure_wipe(dem_key, sizeof(dem_key));
-    areion_pq_secure_wipe(nonce, sizeof(nonce));
     return ok;
 }
 
@@ -1584,16 +1515,10 @@ static AREION_PQ_NOINLINE void pq_slh_expand_seed256_body(
 
             memcpy(&k_sk[0], ksk1, 32U);
             memcpy(&k_sk[32], ksk2, 32U);
-            areion_pq_secure_wipe(s, sizeof(s));
-            areion_pq_secure_wipe(ksk1, sizeof(ksk1));
-            areion_pq_secure_wipe(ksk2, sizeof(ksk2));
         } else {
             memset(k_sk, 0, 64U);
         }
     }
-    areion_pq_secure_wipe(p, sizeof(p));
-    areion_pq_secure_wipe(k_pub1, sizeof(k_pub1));
-    areion_pq_secure_wipe(k_pub2, sizeof(k_pub2));
 }
 
 void areion_pq_slh_expand_seed256(
@@ -1617,8 +1542,6 @@ static AREION_PQ_NOINLINE void pq_slh_expand_seed128_body(
         pq_pad32(s32, sk_seed, 16U);
     }
     pq_slh_expand_seed256_body(k_pub, k_sk, p32, (sk_seed != NULL) ? s32 : NULL);
-    areion_pq_secure_wipe(p32, sizeof(p32));
-    areion_pq_secure_wipe(s32, sizeof(s32));
 }
 
 void areion_pq_slh_expand_seed128(
@@ -3144,9 +3067,9 @@ static void pq_faest_expand_leaf(
     uint8_t *row_out, uint8_t *com_out) {
     uint8_t k_leaf[64];
     uint8_t keys4[4][64];
-    uint8_t buf[22 * 32];
+    uint8_t buf[24 * 32];
     uint8_t in4[4][32], out4[4][32], in32[32], out32[32];
-    uint32_t total_bytes = l_ext + lambda;
+    uint32_t total_bytes = (com_out != NULL) ? (l_ext + lambda) : l_ext;
     uint32_t num_blks = (total_bytes + 31U) / 32U;
     uint32_t blk = 0U;
     uint32_t lane;
@@ -3158,32 +3081,32 @@ static void pq_faest_expand_leaf(
     }
     memcpy(&k_leaf[32], salt, 32U);
 
-    for (lane = 0U; lane < 4U; lane++) {
-        memcpy(keys4[lane], k_leaf, 64U);
-    }
-
-    for (; blk + 4U <= num_blks; blk += 4U) {
-        for (lane = 0U; lane < 4U; lane++) {
-            areion_pq_store_le64(&in4[lane][0], (uint64_t)t);
-            areion_pq_store_le64(&in4[lane][8], (uint64_t)j);
-            areion_pq_store_le64(&in4[lane][16], (uint64_t)blk + (uint64_t)lane);
-            areion_pq_store_le64(&in4[lane][24], UINT64_C(0x564F4C454C454146));
+    if (row_out == NULL) {
+        blk = l_ext / 32U;
+        for (; blk < num_blks; blk++) {
+            areion_pq_store_le64(&in32[0], (uint64_t)t);
+            areion_pq_store_le64(&in32[8], (uint64_t)j);
+            areion_pq_store_le64(&in32[16], (uint64_t)blk);
+            areion_pq_store_le64(&in32[24], UINT64_C(0x564F4C454C454146));
+            areion_soem256(out32, k_leaf, in32);
+            memcpy(&buf[32U * (size_t)blk], out32, 32U);
         }
-        areion_soem256x4(out4, (const uint8_t (*)[64])keys4, (const uint8_t (*)[32])in4);
+    } else {
         for (lane = 0U; lane < 4U; lane++) {
-            memcpy(&buf[32U * (size_t)(blk + lane)], out4[lane], 32U);
+            memcpy(keys4[lane], k_leaf, 64U);
         }
-    }
-    for (; blk < num_blks; blk++) {
-        areion_pq_store_le64(&in32[0], (uint64_t)t);
-        areion_pq_store_le64(&in32[8], (uint64_t)j);
-        areion_pq_store_le64(&in32[16], (uint64_t)blk);
-        areion_pq_store_le64(&in32[24], UINT64_C(0x564F4C454C454146));
-        areion_soem256(out32, k_leaf, in32);
-        memcpy(&buf[32U * (size_t)blk], out32, 32U);
-    }
-
-    if (row_out != NULL) {
+        for (; blk < num_blks; blk += 4U) {
+            for (lane = 0U; lane < 4U; lane++) {
+                areion_pq_store_le64(&in4[lane][0], (uint64_t)t);
+                areion_pq_store_le64(&in4[lane][8], (uint64_t)j);
+                areion_pq_store_le64(&in4[lane][16], (uint64_t)blk + (uint64_t)lane);
+                areion_pq_store_le64(&in4[lane][24], UINT64_C(0x564F4C454C454146));
+            }
+            areion_soem256x4(out4, (const uint8_t (*)[64])keys4, (const uint8_t (*)[32])in4);
+            for (lane = 0U; lane < 4U; lane++) {
+                memcpy(&buf[32U * (size_t)(blk + lane)], out4[lane], 32U);
+            }
+        }
         memcpy(row_out, &buf[0], (size_t)l_ext);
     }
     if (com_out != NULL) {

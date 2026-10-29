@@ -10,14 +10,14 @@
 #if (defined(__x86_64__) || defined(_M_X64)) && !defined(AREION_PQ_FORCE_PORTABLE) && !defined(AREION_FORCE_PORTABLE)
 
 int areion_pq_has_hw_extract_witness256(void) {
-    return (areion_pq_tier_code() >= AREION_PQ_TIER_AESNI) ? 1 : 0;
+    return (areion_pq_active_tier() >= AREION_PQ_TIER_AESNI) ? 1 : 0;
 }
 
 void areion_pq_dispatch_extract_witness256(
     uint8_t c[32], uint8_t w[288],
     const uint8_t m[32], const uint8_t k1[32], const uint8_t k2[32],
     const uint8_t rc[10][16]) {
-    areion_pq_tier_t tier = areion_pq_tier_code();
+    areion_pq_tier_t tier = areion_pq_active_tier();
     if (tier >= AREION_PQ_TIER_VEX) {
         areion_pq_extract_witness256_vex(c, w, m, k1, k2, rc);
         AREION_PQ_MSAN_UNPOISON(c, 32U);
@@ -35,7 +35,7 @@ void areion_pq_dispatch_extract_witness256(
 
 void areion_pq_dispatch_gf128_mul(
     uint8_t out[16], const uint8_t a[16], const uint8_t b[16]) {
-    areion_pq_tier_t tier = areion_pq_tier_code();
+    areion_pq_tier_t tier = areion_pq_active_tier();
     if (tier >= AREION_PQ_TIER_VEX && areion_pq_has_vpclmul()) {
         areion_pq_gf128_mul_vpclmul(out, a, b);
         AREION_PQ_MSAN_UNPOISON(out, 16U);
@@ -51,7 +51,7 @@ void areion_pq_dispatch_gf128_mul(
 
 void areion_pq_dispatch_gf128_mul_nowipe(
     uint8_t out[16], const uint8_t a[16], const uint8_t b[16]) {
-    areion_pq_tier_t tier = areion_pq_tier_code();
+    areion_pq_tier_t tier = areion_pq_active_tier();
     if (tier >= AREION_PQ_TIER_VEX && areion_pq_has_vpclmul()) {
         areion_pq_gf128_mul_vpclmul(out, a, b);
         AREION_PQ_MSAN_UNPOISON(out, 16U);
@@ -71,7 +71,7 @@ void areion_pq_dispatch_gf128_polymac(
     if (count == 0U) {
         return;
     }
-    tier = areion_pq_tier_code();
+    tier = areion_pq_active_tier();
     if (tier >= AREION_PQ_TIER_VEX && areion_pq_has_vpclmul()) {
         areion_pq_gf128_polymac_vpclmul(acc, a, b, count, chi);
         AREION_PQ_MSAN_UNPOISON(acc, 16U);
@@ -91,7 +91,7 @@ void areion_pq_dispatch_vole_xor_row(
     if (len == 0U) {
         return;
     }
-    tier = areion_pq_tier_code();
+    tier = areion_pq_active_tier();
     if (tier >= AREION_PQ_TIER_AVX512) {
         areion_pq_vole_xor_row_avx512(dst, src, len);
         AREION_PQ_MSAN_UNPOISON(dst, len);
@@ -116,7 +116,7 @@ void areion_pq_dispatch_vole_xor_row_nowipe(
     if (len == 0U) {
         return;
     }
-    tier = areion_pq_tier_code();
+    tier = areion_pq_active_tier();
     if (tier >= AREION_PQ_TIER_AVX512) {
         areion_pq_vole_xor_row_avx512(dst, src, len);
         AREION_PQ_MSAN_UNPOISON(dst, len);

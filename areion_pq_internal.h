@@ -27,6 +27,10 @@
 #endif
 
 #if defined(_MSC_VER)
+#include <intrin.h>
+#ifndef InterlockedCompareExchange
+#define InterlockedCompareExchange _InterlockedCompareExchange
+#endif
 #define AREION_PQ_ALIGN64 __declspec(align(64))
 #define AREION_PQ_NOINLINE __declspec(noinline)
 #define AREION_PQ_NO_STACK_PROTECTOR __declspec(safebuffers)
@@ -249,9 +253,66 @@ extern const uint8_t areion_pq_aes_sbox[256] AREION_PQ_INTERNAL;
 
 AREION_PQ_INTERNAL areion_pq_tier_t areion_pq_detect_hardware_tier(void);
 AREION_PQ_INTERNAL bool areion_pq_check_tier_supported(areion_pq_tier_t tier);
-AREION_PQ_INTERNAL bool areion_pq_has_pclmul(void);
-AREION_PQ_INTERNAL bool areion_pq_has_vpclmul(void);
-AREION_PQ_INTERNAL bool areion_pq_has_pmull(void);
+AREION_PQ_INTERNAL bool areion_pq_detect_pclmul(void);
+AREION_PQ_INTERNAL bool areion_pq_detect_vpclmul(void);
+AREION_PQ_INTERNAL bool areion_pq_detect_pmull(void);
+
+#if defined(_MSC_VER)
+extern volatile long areion_pq_g_active_tier;
+extern volatile long areion_pq_g_has_pclmul;
+extern volatile long areion_pq_g_has_vpclmul;
+extern volatile long areion_pq_g_has_pmull;
+#elif defined(__GNUC__) || defined(__clang__)
+extern int areion_pq_g_active_tier AREION_PQ_INTERNAL;
+extern int areion_pq_g_has_pclmul AREION_PQ_INTERNAL;
+extern int areion_pq_g_has_vpclmul AREION_PQ_INTERNAL;
+extern int areion_pq_g_has_pmull AREION_PQ_INTERNAL;
+#else
+extern volatile int areion_pq_g_active_tier;
+extern volatile int areion_pq_g_has_pclmul;
+extern volatile int areion_pq_g_has_vpclmul;
+extern volatile int areion_pq_g_has_pmull;
+#endif
+
+static inline areion_pq_tier_t areion_pq_active_tier(void) {
+#if defined(_MSC_VER)
+    return (areion_pq_tier_t)InterlockedCompareExchange((volatile long *)&areion_pq_g_active_tier, 0, 0);
+#elif defined(__GNUC__) || defined(__clang__)
+    return (areion_pq_tier_t)__atomic_load_n(&areion_pq_g_active_tier, __ATOMIC_ACQUIRE);
+#else
+    return areion_pq_tier_code();
+#endif
+}
+
+static inline bool areion_pq_has_pclmul(void) {
+#if defined(_MSC_VER)
+    return InterlockedCompareExchange((volatile long *)&areion_pq_g_has_pclmul, 0, 0) != 0;
+#elif defined(__GNUC__) || defined(__clang__)
+    return __atomic_load_n(&areion_pq_g_has_pclmul, __ATOMIC_ACQUIRE) != 0;
+#else
+    return areion_pq_detect_pclmul();
+#endif
+}
+
+static inline bool areion_pq_has_vpclmul(void) {
+#if defined(_MSC_VER)
+    return InterlockedCompareExchange((volatile long *)&areion_pq_g_has_vpclmul, 0, 0) != 0;
+#elif defined(__GNUC__) || defined(__clang__)
+    return __atomic_load_n(&areion_pq_g_has_vpclmul, __ATOMIC_ACQUIRE) != 0;
+#else
+    return areion_pq_detect_vpclmul();
+#endif
+}
+
+static inline bool areion_pq_has_pmull(void) {
+#if defined(_MSC_VER)
+    return InterlockedCompareExchange((volatile long *)&areion_pq_g_has_pmull, 0, 0) != 0;
+#elif defined(__GNUC__) || defined(__clang__)
+    return __atomic_load_n(&areion_pq_g_has_pmull, __ATOMIC_ACQUIRE) != 0;
+#else
+    return areion_pq_detect_pmull();
+#endif
+}
 
 /* =========================================================================
  * Scratch Register & Zeroization Helpers
@@ -265,7 +326,7 @@ extern void areion_pq_dirty_simd_reg_for_test(uint64_t masked) AREION_PQ_INTERNA
 
 static inline void areion_pq_clobber_scratch_gprs(void) {
 #if (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(_M_X64))
-    if (areion_pq_tier_code() == AREION_PQ_TIER_AVX512) {
+    if (areion_pq_active_tier() == AREION_PQ_TIER_AVX512) {
         __asm__ __volatile__(
             "vpxord %%zmm16, %%zmm16, %%zmm16\n\t"
             "vpxord %%zmm17, %%zmm17, %%zmm17\n\t"

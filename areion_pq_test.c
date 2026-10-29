@@ -348,6 +348,8 @@ static void test_finite_fields_and_witnesses(void) {
     areion_pq_gf128_mul(t1_16, x16, y16);
     areion_pq_gf128_mul(t2_16, y16, x16);
     check_bytes_eq("GF128Mul commutativity", t1_16, t2_16, 16U);
+    areion_pq_gf128_mul_core(t3_16, x16, y16);
+    check_bytes_eq("GF128Mul == GF128MulCore", t1_16, t3_16, 16U);
 
     areion_pq_gf128_mul(t2_16, t1_16, z16);
     areion_pq_gf128_mul(t3_16, y16, z16);
@@ -807,7 +809,7 @@ static void test_signatures_and_wrappers(int run_slow_s_variants) {
  * 5. Cross-Tier & Cross-Language KAT Dumper + Pairwise Tier Matrix
  * ========================================================================= */
 
-#define AREION_PQ_MAX_KAT_ENTRIES 80U
+#define AREION_PQ_MAX_KAT_ENTRIES 96U
 
 typedef struct {
     char name[40];
@@ -1090,6 +1092,28 @@ static int dump_kat_for_tier(const char *tier_arg, int include_s_variants) {
     record_kat("SLHDSATEM256f_Sig", sig_buf, AREION_PQ_SLHDSA_TEM256F_SIG_SIZE);
     record_kat_bool("SLHDSATEM256f_Verify", areion_pq_slhdsa_tem_verify256f(slh_pk64, msg33, 33U, sig_buf));
 
+    if (g_full_mode != 0) {
+        fill_pattern(slh_seed48, 48U, 0x69U);
+        fill_pattern(msg33, 33U, 0x6AU);
+        fill_pattern(opt16, 16U, 0x6BU);
+        areion_pq_slhdsa_keygen128s(slh_pk32, slh_sk64, slh_seed48);
+        areion_pq_slhdsa_sign128s(sig_buf, slh_sk64, msg33, 33U, opt16);
+        record_kat("SLHDSA128s_PK", slh_pk32, 32U);
+        record_kat("SLHDSA128s_SK", slh_sk64, 64U);
+        record_kat("SLHDSA128s_Sig", sig_buf, AREION_PQ_SLHDSA128S_SIG_SIZE);
+        record_kat_bool("SLHDSA128s_Verify", areion_pq_slhdsa_verify128s(slh_pk32, msg33, 33U, sig_buf));
+
+        fill_pattern(slh_seed96, 96U, 0x6CU);
+        fill_pattern(msg33, 33U, 0x6DU);
+        fill_pattern(opt32, 32U, 0x6EU);
+        areion_pq_slhdsa_keygen256s(slh_pk64, slh_sk128, slh_seed96);
+        areion_pq_slhdsa_sign256s(sig_buf, slh_sk128, msg33, 33U, opt32);
+        record_kat("SLHDSA256s_PK", slh_pk64, 64U);
+        record_kat("SLHDSA256s_SK", slh_sk128, 128U);
+        record_kat("SLHDSA256s_Sig", sig_buf, AREION_PQ_SLHDSA256S_SIG_SIZE);
+        record_kat_bool("SLHDSA256s_Verify", areion_pq_slhdsa_verify256s(slh_pk64, msg33, 33U, sig_buf));
+    }
+
     /* 4. Track 3: Areion-HPKE, KDF & TEM2-SIV */
     fill_pattern(kdf_sec, sizeof(kdf_sec), 0x70U);
     fill_pattern(kdf_ctx, sizeof(kdf_ctx), 0x71U);
@@ -1292,14 +1316,24 @@ static void test_multithreaded_dispatch(void) {
  * 7. Industrial Hardening: Unaligned, Win64 ABI, Timecop & dudect
  * ========================================================================= */
 
-#if defined(_WIN64) && (defined(__GNUC__) || defined(__clang__))
+#if defined(_WIN64) && (defined(__x86_64__) || defined(_M_X64)) && (defined(__GNUC__) || defined(__clang__))
 typedef void (*win64_cb_fn_t)(void *ctx);
+
+typedef struct {
+    win64_cb_fn_t fn;
+    void *ctx;
+    const uint8_t (*xmm_want)[16];
+    const uint64_t *gpr_want;
+    uint64_t *gpr_got;
+    uint8_t (*xmm_got)[16];
+} win64_check_args_t;
 
 static AREION_PQ_NOINLINE void win64_invoke_check(const char *label, win64_cb_fn_t fn, void *ctx) {
     AREION_PQ_ALIGN64 uint8_t xmm_want[10][16];
     AREION_PQ_ALIGN64 uint8_t xmm_got[10][16];
     const uint64_t gpr_want[2] = { 0xCAFEBABE11223344ULL, 0xDEADBEEF55667788ULL };
     uint64_t gpr_got[2];
+    win64_check_args_t args;
     size_t r, b;
 
     gpr_got[0] = 0ULL;
@@ -1311,42 +1345,49 @@ static AREION_PQ_NOINLINE void win64_invoke_check(const char *label, win64_cb_fn
         }
     }
 
+    args.fn = fn;
+    args.ctx = ctx;
+    args.xmm_want = (const uint8_t (*)[16])xmm_want;
+    args.gpr_want = gpr_want;
+    args.gpr_got = gpr_got;
+    args.xmm_got = xmm_got;
+
     __asm__ __volatile__(
-        "movdqu 0(%2), %%xmm6\n\t"
-        "movdqu 16(%2), %%xmm7\n\t"
-        "movdqu 32(%2), %%xmm8\n\t"
-        "movdqu 48(%2), %%xmm9\n\t"
-        "movdqu 64(%2), %%xmm10\n\t"
-        "movdqu 80(%2), %%xmm11\n\t"
-        "movdqu 96(%2), %%xmm12\n\t"
-        "movdqu 112(%2), %%xmm13\n\t"
-        "movdqu 128(%2), %%xmm14\n\t"
-        "movdqu 144(%2), %%xmm15\n\t"
-        "pushq %%rsi\n\t"
-        "pushq %%rdi\n\t"
-        "movq 0(%3), %%rsi\n\t"
-        "movq 8(%3), %%rdi\n\t"
+        "movq 16(%%rbx), %%rax\n\t"
+        "movdqu 0(%%rax), %%xmm6\n\t"
+        "movdqu 16(%%rax), %%xmm7\n\t"
+        "movdqu 32(%%rax), %%xmm8\n\t"
+        "movdqu 48(%%rax), %%xmm9\n\t"
+        "movdqu 64(%%rax), %%xmm10\n\t"
+        "movdqu 80(%%rax), %%xmm11\n\t"
+        "movdqu 96(%%rax), %%xmm12\n\t"
+        "movdqu 112(%%rax), %%xmm13\n\t"
+        "movdqu 128(%%rax), %%xmm14\n\t"
+        "movdqu 144(%%rax), %%xmm15\n\t"
+        "movq 24(%%rbx), %%rax\n\t"
+        "movq 0(%%rax), %%rsi\n\t"
+        "movq 8(%%rax), %%rdi\n\t"
         "subq $32, %%rsp\n\t"
-        "movq %1, %%rcx\n\t"
-        "call *%0\n\t"
+        "movq 8(%%rbx), %%rcx\n\t"
+        "call *0(%%rbx)\n\t"
         "addq $32, %%rsp\n\t"
-        "movq %%rsi, 0(%4)\n\t"
-        "movq %%rdi, 8(%4)\n\t"
-        "popq %%rdi\n\t"
-        "popq %%rsi\n\t"
-        "movdqu %%xmm6, 0(%5)\n\t"
-        "movdqu %%xmm7, 16(%5)\n\t"
-        "movdqu %%xmm8, 32(%5)\n\t"
-        "movdqu %%xmm9, 48(%5)\n\t"
-        "movdqu %%xmm10, 64(%5)\n\t"
-        "movdqu %%xmm11, 80(%5)\n\t"
-        "movdqu %%xmm12, 96(%5)\n\t"
-        "movdqu %%xmm13, 112(%5)\n\t"
-        "movdqu %%xmm14, 128(%5)\n\t"
-        "movdqu %%xmm15, 144(%5)\n\t"
+        "movq 32(%%rbx), %%rax\n\t"
+        "movq %%rsi, 0(%%rax)\n\t"
+        "movq %%rdi, 8(%%rax)\n\t"
+        "movq 40(%%rbx), %%rax\n\t"
+        "movdqu %%xmm6, 0(%%rax)\n\t"
+        "movdqu %%xmm7, 16(%%rax)\n\t"
+        "movdqu %%xmm8, 32(%%rax)\n\t"
+        "movdqu %%xmm9, 48(%%rax)\n\t"
+        "movdqu %%xmm10, 64(%%rax)\n\t"
+        "movdqu %%xmm11, 80(%%rax)\n\t"
+        "movdqu %%xmm12, 96(%%rax)\n\t"
+        "movdqu %%xmm13, 112(%%rax)\n\t"
+        "movdqu %%xmm14, 128(%%rax)\n\t"
+        "movdqu %%xmm15, 144(%%rax)\n\t"
         :
-        : "r"(fn), "r"(ctx), "r"(xmm_want), "r"(gpr_want), "r"(gpr_got), "r"(xmm_got)
-        : "rcx", "rdx", "r8", "r9", "r10", "r11", "rax",
+        : "b"(&args)
+        : "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11",
           "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5",
           "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
           "cc", "memory"
@@ -1364,17 +1405,25 @@ static AREION_PQ_NOINLINE void win64_invoke_check(const char *label, win64_cb_fn
 
 static void win64_cb_all(void *ctx) {
     uint8_t m[32] = {0}, k1[32] = {0}, k2[32] = {0}, c[32] = {0}, w[288] = {0};
-    uint8_t a16[64] = {0}, b16[64] = {0}, chi16[16] = {0}, out16[16] = {0};
+    uint8_t a16[64], b16[64], chi16[16], out16[16], want16[16];
     (void)ctx;
+    fill_pattern(a16, sizeof(a16), 0x11U);
+    fill_pattern(b16, sizeof(b16), 0x22U);
+    fill_pattern(chi16, sizeof(chi16), 0x33U);
     areion_pq_extract_witness256(c, w, m, k1, k2);
     areion_pq_gf128_mul(out16, a16, b16);
+    areion_pq_gf128_mul_core(want16, a16, b16);
+    check_bytes_eq("win64_cb_all GF128Mul(a, b) == GF128MulCore(a, b)", out16, want16, 16U);
     areion_pq_gf128_polymac(out16, a16, b16, 4U, chi16);
+    memset(want16, 0, sizeof(want16));
+    areion_pq_gf128_polymac_purec(want16, a16, b16, 4U, chi16);
+    check_bytes_eq("win64_cb_all GF128PolyMAC == GF128PolyMACPureC", out16, want16, 16U);
     areion_pq_dispatch_vole_xor_row(w, w + 16, 256U);
 }
 #endif
 
 static void test_win64_callee_saved_abi(void) {
-#if defined(_WIN64) && (defined(__GNUC__) || defined(__clang__))
+#if defined(_WIN64) && (defined(__x86_64__) || defined(_M_X64)) && (defined(__GNUC__) || defined(__clang__))
     win64_invoke_check("all_pq_kernels_win64_abi", win64_cb_all, NULL);
 #endif
 }
@@ -1787,7 +1836,8 @@ int main(int argc, char **argv) {
     }
 
     if (argc >= 2 && strcmp(argv[1], "--dump-kat") == 0) {
-        return dump_kat_for_tier(argc >= 3 ? argv[2] : NULL, 1);
+        const char *tier_arg = (argc >= 3 && strncmp(argv[2], "--", 2) != 0) ? argv[2] : NULL;
+        return dump_kat_for_tier(tier_arg, 1);
     }
     if (argc >= 2 && strcmp(argv[1], "--bench") == 0) {
         if (argc >= 3) {

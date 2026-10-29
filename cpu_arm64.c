@@ -92,15 +92,15 @@ bool areion_pq_check_tier_supported(areion_pq_tier_t tier) {
     return false;
 }
 
-bool areion_pq_has_pclmul(void) {
+bool areion_pq_detect_pclmul(void) {
     return false;
 }
 
-bool areion_pq_has_vpclmul(void) {
+bool areion_pq_detect_vpclmul(void) {
     return false;
 }
 
-bool areion_pq_has_pmull(void) {
+bool areion_pq_detect_pmull(void) {
     return query_arm64_pmull();
 }
 

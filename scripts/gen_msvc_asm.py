@@ -16,9 +16,11 @@ C_REPO = Path(__file__).resolve().parent.parent
 MASM_MNEMONIC_MAP = {
     "movabsq": "mov",
     "movl": "mov",
+    "movb": "mov",
     "movzbl": "movzx",
     "xorq": "xor",
     "xorl": "xor",
+    "xorb": "xor",
     "addq": "add",
     "addl": "add",
     "subq": "sub",
@@ -106,7 +108,7 @@ def eval_win64_lines(body: str) -> list[str]:
 def infer_mem_ptr_prefix(mnem: str, ops: list[str]) -> str:
     if mnem == "leaq":
         return ""
-    if mnem == "movzbl":
+    if mnem in ("movzbl", "xorb", "movb"):
         return "BYTE PTR "
     if mnem in ("movq", "xorq", "addq", "subq", "cmpq", "testq", "andq", "orq", "shrq", "shlq", "decq", "incq"):
         if mnem == "movq" and any("%xmm" in o for o in ops):
@@ -165,7 +167,7 @@ def convert_att_op_to_masm(op: str, ptr_prefix: str) -> str:
     return op
 
 
-def translate_s_to_masm(s_filename: str, msvc_filename: str) -> None:
+def translate_s_to_masm(s_filename: str, msvc_filename: str, check_only: bool = False) -> None:
     s_path = C_REPO / s_filename
     if not s_path.exists():
         return
@@ -230,10 +232,17 @@ def translate_s_to_masm(s_filename: str, msvc_filename: str) -> None:
 
     masm_lines.append("END")
     masm_lines.append("")
-    (C_REPO / "msvc" / msvc_filename).write_text("\n".join(masm_lines), encoding="utf-8")
+    content = "\n".join(masm_lines)
+    out_path = C_REPO / "msvc" / msvc_filename
+    if check_only:
+        assert out_path.exists() and out_path.read_text(encoding="utf-8") == content, (
+            f"msvc/{msvc_filename} is out of sync with {s_filename}"
+        )
+    else:
+        out_path.write_text(content, encoding="utf-8")
 
 
-def translate_arm64_s_to_armasm(s_filename: str, msvc_filename: str) -> None:
+def translate_arm64_s_to_armasm(s_filename: str, msvc_filename: str, check_only: bool = False) -> None:
     s_path = C_REPO / s_filename
     if not s_path.exists():
         return
@@ -285,14 +294,25 @@ def translate_arm64_s_to_armasm(s_filename: str, msvc_filename: str) -> None:
 
     armasm_lines.append("    END")
     armasm_lines.append("")
-    (C_REPO / "msvc" / msvc_filename).write_text("\n".join(armasm_lines), encoding="utf-8")
+    content = "\n".join(armasm_lines)
+    out_path = C_REPO / "msvc" / msvc_filename
+    if check_only:
+        assert out_path.exists() and out_path.read_text(encoding="utf-8") == content, (
+            f"msvc/{msvc_filename} is out of sync with {s_filename}"
+        )
+    else:
+        out_path.write_text(content, encoding="utf-8")
 
 
 def main() -> int:
+    check_only = "--check" in sys.argv[1:]
     (C_REPO / "msvc").mkdir(parents=True, exist_ok=True)
-    translate_s_to_masm("areion_pq_amd64.S", "areion_pq_amd64.asm")
-    translate_arm64_s_to_armasm("areion_pq_arm64.S", "areion_pq_arm64.asm")
-    print("OK: Generated all MSVC (msvc/areion_pq_*.asm) assembly files from .S sources.")
+    translate_s_to_masm("areion_pq_amd64.S", "areion_pq_amd64.asm", check_only=check_only)
+    translate_arm64_s_to_armasm("areion_pq_arm64.S", "areion_pq_arm64.asm", check_only=check_only)
+    if check_only:
+        print("OK: All MSVC (msvc/areion_pq_*.asm) assembly files are in sync with .S sources.")
+    else:
+        print("OK: Generated all MSVC (msvc/areion_pq_*.asm) assembly files from .S sources.")
     return 0
 
 

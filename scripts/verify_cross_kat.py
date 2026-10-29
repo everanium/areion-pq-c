@@ -80,8 +80,16 @@ func printBool(label string, ok bool) {
 }
 
 func main() {
-	if len(os.Args) >= 2 {
-		tier := os.Args[1]
+	fullMode := false
+	tier := ""
+	for _, arg := range os.Args[1:] {
+		if arg == "--full" {
+			fullMode = true
+		} else if tier == "" {
+			tier = arg
+		}
+	}
+	if tier != "" {
 		if tier == "purec" {
 			tier = "purego"
 		}
@@ -318,6 +326,28 @@ func main() {
 	printHex("SLHDSATEM256f_Sig", slhSigTEM256f[:])
 	printBool("SLHDSATEM256f_Verify", areionpq.SLHDSATEMVerify256f(&slhPKTEM256f, msg33[:], &slhSigTEM256f))
 
+	if fullMode {
+		fillPattern(slhSeed48[:], 0x69)
+		fillPattern(msg33[:], 0x6A)
+		fillPattern(opt16[:], 0x6B)
+		slhPK128s, slhSK128s := areionpq.SLHDSAKeygen128s(&slhSeed48)
+		slhSig128s := areionpq.SLHDSASign128s(&slhSK128s, msg33[:], &opt16)
+		printHex("SLHDSA128s_PK", slhPK128s[:])
+		printHex("SLHDSA128s_SK", slhSK128s[:])
+		printHex("SLHDSA128s_Sig", slhSig128s[:])
+		printBool("SLHDSA128s_Verify", areionpq.SLHDSAVerify128s(&slhPK128s, msg33[:], &slhSig128s))
+
+		fillPattern(slhSeed96[:], 0x6C)
+		fillPattern(msg33[:], 0x6D)
+		fillPattern(opt32[:], 0x6E)
+		slhPK256s, slhSK256s := areionpq.SLHDSAKeygen256s(&slhSeed96)
+		slhSig256s := areionpq.SLHDSASign256s(&slhSK256s, msg33[:], &opt32)
+		printHex("SLHDSA256s_PK", slhPK256s[:])
+		printHex("SLHDSA256s_SK", slhSK256s[:])
+		printHex("SLHDSA256s_Sig", slhSig256s[:])
+		printBool("SLHDSA256s_Verify", areionpq.SLHDSAVerify256s(&slhPK256s, msg33[:], &slhSig256s))
+	}
+
 	// 4. Track 3: Areion-HPKE, KDF & TEM2-SIV
 	var kdfSec [48]byte
 	var kdfCtx [29]byte
@@ -397,6 +427,9 @@ def main() -> int:
         print(f"SKIP: Go reference repo {GO_REPO} not found.")
         return 0
 
+    full_mode = "--full" in sys.argv[1:]
+    full_args = ["--full"] if full_mode else []
+
     go_runs: dict[str, dict[str, str]] = {}
     c_runs: dict[str, dict[str, str]] = {}
 
@@ -410,8 +443,8 @@ def main() -> int:
         (go_mod_dir / "go.mod").write_text(
             f"module godump\n\ngo 1.24\n\n"
             f"require (\n"
-            f"\tgithub.com/everanium/areion v0.1.5\n"
-            f"\tgithub.com/everanium/areion-pq v0.1.0\n"
+            f"\tgithub.com/everanium/areion v0.1.6\n"
+            f"\tgithub.com/everanium/areion-pq v0.1.1\n"
             f")\n\n"
             f"replace github.com/everanium/areion => {AREION_GO_REPO}\n"
             f"replace github.com/everanium/areion-pq => {GO_REPO}\n",
@@ -427,12 +460,12 @@ def main() -> int:
 
         x86_tiers = ["purec", "aesni", "vex", "vaesavx2", "avx512"]
         for tier in x86_tiers:
-            c_proc = subprocess.run([str(c_bin_x86), "--dump-kat", tier], capture_output=True, text=True)
+            c_proc = subprocess.run([str(c_bin_x86), "--dump-kat", tier, *full_args], capture_output=True, text=True)
             if c_proc.returncode == 2:
                 print(f"SKIP tier {tier} (not supported on current CPU)")
                 continue
             assert c_proc.returncode == 0, c_proc.stderr
-            go_proc = subprocess.run([str(go_bin_x86), tier], capture_output=True, text=True, check=True)
+            go_proc = subprocess.run([str(go_bin_x86), tier, *full_args], capture_output=True, text=True, check=True)
 
             c_raw = parse_kv(c_proc.stdout)
             go_raw = parse_kv(go_proc.stdout)
@@ -553,13 +586,15 @@ def main() -> int:
     pairs_checked = 0
     for go_label, go_map in go_runs.items():
         for c_label, c_map in c_runs.items():
-            for k, go_val in go_map.items():
+            common_keys = [k for k in go_map if k in c_map]
+            for k in common_keys:
+                go_val = go_map[k]
                 c_val = c_map.get(k)
                 if c_val != go_val:
                     print(f"FAIL Matrix [Go[{go_label}] <-> C[{c_label}]] on {k}:\n  Go = {go_val[:128]}\n  C  = {(c_val or '')[:128]}", file=sys.stderr)
                     return 1
             pairs_checked += 1
-            print(f"PASS Matrix Pair [{pairs_checked:2d}]: Go[{go_label:16s}] <-> C[{c_label:16s}] ({len(go_map)} KAT vectors)")
+            print(f"PASS Matrix Pair [{pairs_checked:2d}]: Go[{go_label:16s}] <-> C[{c_label:16s}] ({len(common_keys)} KAT vectors)")
 
     print(
         f"\nALL CROSS-LANGUAGE GO <-> C KAT CHECKS PASSED "

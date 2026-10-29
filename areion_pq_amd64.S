@@ -274,8 +274,6 @@ AREION_FUNC_START(areion_pq_gf128_mul_pclmul)
     movq %rdx, %r9
 #else
     movq %rcx, %rax
-    movq %rdx, %r8
-    /* %r8 already holds b */
     movq %r8, %r9
     movq %rdx, %r8
 #endif
@@ -330,9 +328,10 @@ AREION_FUNC_START(areion_pq_gf128_mul_pclmul)
 #if !defined(_WIN64)
     xorq %rdi, %rdi
     xorq %rsi, %rsi
+#else
+    xorq %rcx, %rcx
 #endif
     xorq %rax, %rax
-    xorq %rcx, %rcx
     xorq %rdx, %rdx
     xorq %r8, %r8
     xorq %r9, %r9
@@ -393,9 +392,10 @@ AREION_FUNC_START(areion_pq_gf128_mul_vpclmul)
 #if !defined(_WIN64)
     xorq %rdi, %rdi
     xorq %rsi, %rsi
+#else
+    xorq %rcx, %rcx
 #endif
     xorq %rax, %rax
-    xorq %rcx, %rcx
     xorq %rdx, %rdx
     xorq %r8, %r8
     xorq %r9, %r9
@@ -655,9 +655,10 @@ AREION_FUNC_START(areion_pq_vole_xor_row_sse2)
 #if !defined(_WIN64)
     xorq %rdi, %rdi
     xorq %rsi, %rsi
+#else
+    xorq %rcx, %rcx
 #endif
     xorq %rax, %rax
-    xorq %rcx, %rcx
     xorq %rdx, %rdx
     xorq %r8, %r8
     xorq %r9, %r9
@@ -713,9 +714,10 @@ AREION_FUNC_START(areion_pq_vole_xor_row_avx2)
 #if !defined(_WIN64)
     xorq %rdi, %rdi
     xorq %rsi, %rsi
+#else
+    xorq %rcx, %rcx
 #endif
     xorq %rax, %rax
-    xorq %rcx, %rcx
     xorq %rdx, %rdx
     xorq %r8, %r8
     xorq %r9, %r9
@@ -772,9 +774,10 @@ AREION_FUNC_START(areion_pq_vole_xor_row_avx512)
 #if !defined(_WIN64)
     xorq %rdi, %rdi
     xorq %rsi, %rsi
+#else
+    xorq %rcx, %rcx
 #endif
     xorq %rax, %rax
-    xorq %rcx, %rcx
     xorq %rdx, %rdx
     xorq %r8, %r8
     xorq %r9, %r9

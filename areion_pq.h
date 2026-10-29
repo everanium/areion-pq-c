@@ -59,11 +59,11 @@ extern "C" {
  * 1. Version & Size Constants
  * ========================================================================= */
 
-#define AREION_PQ_VERSION                       "0.1.0"
-#define AREION_PQ_VERSION_STRING                "0.1.0"
+#define AREION_PQ_VERSION                       "0.1.1"
+#define AREION_PQ_VERSION_STRING                "0.1.1"
 #define AREION_PQ_VERSION_MAJOR                 0
 #define AREION_PQ_VERSION_MINOR                 1
-#define AREION_PQ_VERSION_PATCH                 0
+#define AREION_PQ_VERSION_PATCH                 1
 
 /* Finite-field & witness sizes */
 #define AREION_PQ_BLOCK_SIZE                    16

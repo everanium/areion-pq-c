@@ -136,7 +136,11 @@ test: libareion_pq.so areion_pq_test areion_pq_zeroize_test test-supercop test-p
 		fi; \
 	fi
 	@if command -v nm >/dev/null 2>&1 && [ -f libareion_pq.so ]; then \
-		bad_syms=$$(nm -D --defined-only libareion_pq.so | awk '$$2 ~ /^[TWBDRV]$$/ && $$3 !~ /^_?areion_pq_/ && $$3 !~ /^(_init|_fini|__bss_start|_edata|_end)$$/ {print $$3}'); \
+		if [ "$$(uname -s)" = "Darwin" ]; then \
+			bad_syms=$$(nm -gU libareion_pq.so | awk '$$2 ~ /^[TWBDRV]$$/ {sub(/^_/, "", $$3); if ($$3 !~ /^_?areion_pq_/) print $$3}'); \
+		else \
+			bad_syms=$$(nm -D --defined-only libareion_pq.so | awk '$$2 ~ /^[TWBDRV]$$/ && $$3 !~ /^_?areion_pq_/ && $$3 !~ /^(_init|_fini|__bss_start|_edata|_end)$$/ {print $$3}'); \
+		fi; \
 		if [ -n "$$bad_syms" ]; then echo "FAIL: unexpected exported symbols in libareion_pq.so: $$bad_syms"; exit 1; fi; \
 	fi
 

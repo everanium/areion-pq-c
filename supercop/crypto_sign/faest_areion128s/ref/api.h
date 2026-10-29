@@ -12,7 +12,7 @@
 #define CRYPTO_PUBLICKEYBYTES 48
 #define CRYPTO_BYTES          6448
 #define CRYPTO_SEEDBYTES      32
-#define CRYPTO_VERSION        "0.1.0"
+#define CRYPTO_VERSION        "0.1.1"
 
 int crypto_sign_seed_keypair(
     unsigned char *pk,

@@ -208,7 +208,6 @@ ALIGN 16
 areion_pq_gf128_mul_pclmul PROC
     db 0F3h, 00Fh, 01Eh, 0FAh ; endbr64
     mov rax, rcx
-    mov r8, rdx
     mov r9, r8
     mov r8, rdx
     movdqu xmm0, XMMWORD PTR [r8]
@@ -250,8 +249,8 @@ areion_pq_gf128_mul_pclmul PROC
     pxor xmm3, xmm3
     pxor xmm4, xmm4
     pxor xmm5, xmm5
-    xor rax, rax
     xor rcx, rcx
+    xor rax, rax
     xor rdx, rdx
     xor r8, r8
     xor r9, r9
@@ -298,8 +297,8 @@ areion_pq_gf128_mul_vpclmul PROC
     vpxor xmm3, xmm3, xmm3
     vpxor xmm4, xmm4, xmm4
     vpxor xmm5, xmm5, xmm5
-    xor rax, rax
     xor rcx, rcx
+    xor rax, rax
     xor rdx, rdx
     xor r8, r8
     xor r9, r9
@@ -497,7 +496,7 @@ vole_sse2_tail:
     jz vole_sse2_done
 vole_sse2_byte_loop:
     movzx eax, BYTE PTR [r8]
-    xorb XMMWORD PTR [r9], al
+    xor BYTE PTR [r9], al
     inc r8
     inc r9
     dec r10
@@ -505,8 +504,8 @@ vole_sse2_byte_loop:
 vole_sse2_done:
     pxor xmm0, xmm0
     pxor xmm1, xmm1
-    xor rax, rax
     xor rcx, rcx
+    xor rax, rax
     xor rdx, rdx
     xor r8, r8
     xor r9, r9
@@ -546,15 +545,15 @@ vole_avx2_tail:
     jz vole_avx2_done
 vole_avx2_byte_loop:
     movzx eax, BYTE PTR [r8]
-    xorb XMMWORD PTR [r9], al
+    xor BYTE PTR [r9], al
     inc r8
     inc r9
     dec r10
     jnz vole_avx2_byte_loop
 vole_avx2_done:
     vpxor xmm0, xmm0, xmm0
-    xor rax, rax
     xor rcx, rcx
+    xor rax, rax
     xor rdx, rdx
     xor r8, r8
     xor r9, r9
@@ -595,15 +594,15 @@ vole_avx512_tail:
     jz vole_avx512_done
 vole_avx512_byte_loop:
     movzx eax, BYTE PTR [r8]
-    xorb XMMWORD PTR [r9], al
+    xor BYTE PTR [r9], al
     inc r8
     inc r9
     dec r10
     jnz vole_avx512_byte_loop
 vole_avx512_done:
     vpxord xmm0, xmm0, xmm0
-    xor rax, rax
     xor rcx, rcx
+    xor rax, rax
     xor rdx, rdx
     xor r8, r8
     xor r9, r9
