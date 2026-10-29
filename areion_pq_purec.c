@@ -2752,10 +2752,6 @@ static void pq_kdf_expand_iov(
     uint64_t blk_idx;
     unsigned int lane;
 
-    if (dst_len == 0U || dst == NULL) {
-        return;
-    }
-
     for (idx_seg = 0U; idx_seg < iov_cnt; idx_seg++) {
         total_secret_len += iov[idx_seg].len;
     }
@@ -2775,12 +2771,8 @@ static void pq_kdf_expand_iov(
             if (take > rem) {
                 take = rem;
             }
-            if (p != NULL) {
-                memcpy(&chunk[chunk_fill], p, take);
-                p += take;
-            } else {
-                memset(&chunk[chunk_fill], 0, take);
-            }
+            memcpy(&chunk[chunk_fill], p, take);
+            p += take;
             chunk_fill += take;
             rem -= take;
             if (chunk_fill == 32U) {
@@ -2801,18 +2793,10 @@ static void pq_kdf_expand_iov(
     v[0] ^= 0x01U;
     areion_dm256(v, v);
 
-    for (off = 0U; off < context_len; off += 32U) {
-        size_t rem = context_len - off;
-        if (rem > 32U) {
-            rem = 32U;
-        }
-        memset(b512, 0, sizeof(b512));
-        memcpy(&b512[0], v, 32U);
-        if (context != NULL && rem > 0U) {
-            memcpy(&b512[32], &context[off], rem);
-        }
-        areion_dm512(v, b512);
-    }
+    memset(b512, 0, sizeof(b512));
+    memcpy(&b512[0], v, 32U);
+    memcpy(&b512[32], context, context_len);
+    areion_dm512(v, b512);
 
     areion_dm256(k0, v);
     memcpy(k1, v, 32U);
@@ -3048,11 +3032,7 @@ static void pq_faest_expand_node(
     const uint8_t *s, uint8_t *c0, uint8_t *c1) {
     uint8_t b_node[64], h0[32];
 
-    if (lambda == 16U) {
-        pq_pad32(&b_node[0], s, 16U);
-    } else {
-        memcpy(&b_node[0], s, 32U);
-    }
+    pq_pad32(&b_node[0], s, (size_t)lambda);
     pq_xor32(&b_node[0], &b_node[0], salt);
     areion_pq_store_le64(&b_node[32], (uint64_t)t);
     areion_pq_store_le64(&b_node[40], (uint64_t)lvl);
@@ -3086,11 +3066,7 @@ static void pq_faest_expand_leaf(
     uint32_t blk = 0U;
     uint32_t lane;
 
-    if (lambda == 16U) {
-        pq_pad32(&k_leaf[0], s_leaf, 16U);
-    } else {
-        memcpy(&k_leaf[0], s_leaf, 32U);
-    }
+    pq_pad32(&k_leaf[0], s_leaf, (size_t)lambda);
     memcpy(&k_leaf[32], salt, 32U);
 
     if (row_out == NULL) {

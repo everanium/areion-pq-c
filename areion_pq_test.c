@@ -5,6 +5,10 @@
  * See LICENSE-APACHE and LICENSE-MIT for details.
  */
 
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "areion_pq.h"
 #include "areion_pq_internal.h"
 #include <stdio.h>
@@ -384,6 +388,10 @@ static void test_finite_fields_and_witnesses(void) {
         }
     }
     check_bytes_eq("GF128PolyMAC Horner equivalence", mac_got, mac_want, 16U);
+    areion_pq_gf128_polymac(mac_got, NULL, NULL, 0U, chi16);
+    check_bytes_eq("GF128PolyMAC count=0 zero tag", mac_got, zero16, 16U);
+    areion_pq_dispatch_gf128_polymac(mac_got, NULL, NULL, 0U, chi16);
+    check_bytes_eq("dispatch_gf128_polymac count=0 no-op", mac_got, zero16, 16U);
 
     /* 1c. GF(2^256) extension field & Orthomorphisms */
     fill_pattern(f256_a, 32U, 0x61U);
@@ -534,6 +542,36 @@ static void test_slh_tweakable_hashes(void) {
         areion_pq_slh_prf256(prf1, ksk256, adrs4[i]);
         check_bytes_eq("SLHPRF256x4 == SLHPRF256", prf4[i], prf1, 32U);
     }
+
+    {
+        uint8_t wots_out4[4][32];
+        uint8_t zero64[64];
+        memset(zero64, 0, sizeof(zero64));
+        memset(ksk256, 0xA5, sizeof(ksk256));
+        areion_pq_slh_expand_seed256(kpub256, ksk256, pk32, NULL);
+        check_bytes_eq("SLHExpandSeed256 sk_seed=NULL zeroes k_sk", ksk256, zero64, 64U);
+
+        memset(wots_out4, 0, sizeof(wots_out4));
+        areion_pq_wots_chain256x4_purec(
+            wots_out4, (const uint8_t (*)[32])prf4, (const uint8_t (*)[32])adrs4,
+            &kpub256[0], &kpub256[32], 0U, 0U);
+        check_bytes_eq("wots_chain256x4_purec steps=0", &wots_out4[0][0], &prf4[0][0], 128U);
+
+        areion_pq_wots_chain256x4_purec(
+            wots_out4, (const uint8_t (*)[32])prf4, (const uint8_t (*)[32])adrs4,
+            &kpub256[0], &kpub256[32], 2U, 3U);
+        for (i = 0U; i < 4U; i++) {
+            uint8_t cur[32], adrs_lane[32];
+            uint32_t s;
+            memcpy(cur, prf4[i], 32U);
+            memcpy(adrs_lane, adrs4[i], 32U);
+            for (s = 2U; s < 5U; s++) {
+                areion_pq_store_be32(&adrs_lane[28], s);
+                areion_pq_slh_f256(cur, kpub256, adrs_lane, cur);
+            }
+            check_bytes_eq("wots_chain256x4_purec steps=3 == SLHF256x3", wots_out4[i], cur, 32U);
+        }
+    }
 }
 
 /* =========================================================================
@@ -611,6 +649,17 @@ static void test_kdf_siv_and_hpke(void) {
     /* HPKE deterministic seal/open + tamper tests */
     fill_pattern(shared, sizeof(shared), 0x94U);
     fill_pattern(info, sizeof(info), 0x95U);
+
+    /* KDF and SIV boundary cases: out_len=0, secret_len=32/context_len=32, context_len=48, pt_len=0/ad_len=64 */
+    memset(dem_key, 0xCC, sizeof(dem_key));
+    areion_pq_kdf_expand(dem_key, 0U, shared, 32U, info, 32U);
+    check_true("KDFExpand out_len=0 preserves dst", dem_key[0] == 0xCCU);
+    areion_pq_kdf_expand(dem_key, 64U, shared, 32U, info, 32U);
+    areion_pq_kdf_expand(dem_key, 64U, key, 48U, ad, 48U);
+    areion_pq_tem2_siv_encrypt(ct, tag, key, nonce, ad, 64U, pt, 0U);
+    check_true("TEM2SIVDecrypt pt_len=0 ad_len=64",
+               areion_pq_tem2_siv_decrypt(dec, key, nonce, ad, 64U, ct, 0U, tag) == 1);
+
     areion_pq_hpke_derive_keys(dem_key, base_nonce, shared, info, sizeof(info));
     areion_pq_hpke_seal_det(ct, tag, shared, info, sizeof(info), 42ULL, ad, 37U, pt, 145U);
     memset(dec, 0x77, sizeof(dec));
@@ -655,6 +704,8 @@ static void test_signatures_and_wrappers(int run_slow_s_variants) {
 
     /* 4a. FAEST-128f + SUPERCOP + PQClean + Tamper checks */
     areion_pq_faest_keygen128f(pk48, sk64, seed32);
+    areion_pq_faest_sign128f(sig_buf, sk64, msg, sizeof(msg), NULL);
+    check_true("FAEST-128f verify valid (opt_rand=NULL)", areion_pq_faest_verify128f(pk48, msg, sizeof(msg), sig_buf) == 1);
     areion_pq_faest_sign128f(sig_buf, sk64, msg, sizeof(msg), opt16);
     check_true("FAEST-128f verify valid", areion_pq_faest_verify128f(pk48, msg, sizeof(msg), sig_buf) == 1);
     msg[0] ^= 0x01U;
@@ -708,6 +759,8 @@ static void test_signatures_and_wrappers(int run_slow_s_variants) {
 
     /* 4d. SLH-DSA-128f + SUPERCOP + PQClean + Tamper checks */
     areion_pq_slhdsa_keygen128f(pk32, sk64, seed48);
+    areion_pq_slhdsa_sign128f(sig_buf, sk64, msg, sizeof(msg), NULL);
+    check_true("SLH-DSA-128f verify valid (opt_rand=NULL)", areion_pq_slhdsa_verify128f(pk32, msg, sizeof(msg), sig_buf) == 1);
     areion_pq_slhdsa_sign128f(sig_buf, sk64, msg, sizeof(msg), opt16);
     check_true("SLH-DSA-128f verify valid", areion_pq_slhdsa_verify128f(pk32, msg, sizeof(msg), sig_buf) == 1);
     sig_buf[100] ^= 0x01U;
@@ -1469,9 +1522,21 @@ static void test_unaligned_and_overlap(void) {
         fill_pattern(ref_vole, 352U, 0xC6U);
         fill_pattern(pa, 352U, 0xC6U);
         fill_pattern(pb, 352U, 0xC7U);
+        areion_pq_dispatch_vole_xor_row(pa, pb, 0U);
+        areion_pq_dispatch_vole_xor_row_nowipe(pa, pb, 0U);
+        check_bytes_eq("vole_xor_row len=0 no-op", pa, ref_vole, 352U);
         areion_pq_vole_xor_row_purec(ref_vole, pb, 352U);
         areion_pq_dispatch_vole_xor_row(pa, pb, 352U);
         check_bytes_eq("unaligned dispatch_vole_xor_row", pa, ref_vole, 352U);
+
+        fill_pattern(ref_vole, 16U, 0xC8U);
+        fill_pattern(pa, 16U, 0xC8U);
+        fill_pattern(pc, 16U, 0xC8U);
+        areion_pq_vole_xor_row_purec(ref_vole, pb, 7U);
+        areion_pq_dispatch_vole_xor_row(pa, pb, 7U);
+        areion_pq_dispatch_vole_xor_row_nowipe(pc, pb, 7U);
+        check_bytes_eq("unaligned dispatch_vole_xor_row len=7", pa, ref_vole, 16U);
+        check_bytes_eq("unaligned dispatch_vole_xor_row_nowipe len=7", pc, ref_vole, 16U);
     }
 }
 
@@ -1869,11 +1934,50 @@ int main(int argc, char **argv) {
     /* Verify tier name overrides and introspection */
     num_avail = areion_pq_available_tiers(avail, 8U);
     check_true("areion_pq_available_tiers >= 1", num_avail >= 1U);
+    for (i = 0; i <= 6; i++) {
+        areion_pq_tier_t tc = (areion_pq_tier_t)i;
+        int rc = areion_pq_set_tier_code(tc);
+        if (areion_pq_tier_supported(tc)) {
+            check_true("areion_pq_set_tier_code supported", rc == 0);
+        } else {
+            check_true("areion_pq_set_tier_code unsupported", rc == -1);
+        }
+    }
+    check_true("areion_pq_set_tier_code(-1)", areion_pq_set_tier_code((areion_pq_tier_t)-1) == -1);
+    check_true("areion_pq_set_tier_code(99)", areion_pq_set_tier_code((areion_pq_tier_t)99) == -1);
     check_true("areion_pq_set_tier(purec)", areion_pq_set_tier("purec") == 0 && strcmp(areion_pq_tier(), "purec") == 0);
     check_true("areion_pq_set_tier(purego)", areion_pq_set_tier("purego") == 0 && strcmp(areion_pq_tier(), "purec") == 0);
     check_true("areion_pq_set_tier(SCALAR)", areion_pq_set_tier("  SCALAR ") == 0 && strcmp(areion_pq_tier(), "purec") == 0);
+    check_true("areion_pq_set_tier(arm64)",
+               areion_pq_set_tier("arm64") == (areion_pq_tier_supported(AREION_PQ_TIER_ARM64) ? 0 : -1));
     check_true("areion_pq_set_tier(invalid)", areion_pq_set_tier("nonexistent_tier") == -1);
+    check_true("areion_pq_set_tier(whitespace)", areion_pq_set_tier("   \t\r\n ") == -1);
+    check_true("areion_pq_set_tier(trailing)", areion_pq_set_tier("purec extra") == -1);
+    check_true("areion_pq_set_tier(too_long)", areion_pq_set_tier("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == -1);
     check_true("areion_pq_set_tier(NULL)", areion_pq_set_tier(NULL) == -1);
+#if !defined(_WIN32)
+    (void)setenv("AREION_PQ_FORCE_TIER", "purec", 1);
+    check_true("env AREION_PQ_FORCE_TIER=purec",
+               areion_pq_set_tier("auto") == 0 && areion_pq_tier_code() == AREION_PQ_TIER_PUREC);
+    if (areion_pq_tier_supported(AREION_PQ_TIER_AESNI)) {
+        (void)setenv("AREION_PQ_FORCE_TIER", "aesni", 1);
+        check_true("env AREION_PQ_FORCE_TIER=aesni",
+                   areion_pq_set_tier_code(AREION_PQ_TIER_AUTO) == 0 && areion_pq_tier_code() == AREION_PQ_TIER_AESNI);
+    }
+    (void)setenv("AREION_PQ_FORCE_TIER", "invalid", 1);
+    check_true("env AREION_PQ_FORCE_TIER=invalid", areion_pq_set_tier("auto") == 0);
+    (void)unsetenv("AREION_PQ_FORCE_TIER");
+
+    (void)setenv("AREION_FORCE_TIER", "purec", 1);
+    check_true("env AREION_FORCE_TIER=purec",
+               areion_pq_set_tier("auto") == 0 && areion_pq_tier_code() == AREION_PQ_TIER_PUREC);
+    (void)unsetenv("AREION_FORCE_TIER");
+
+    (void)setenv("AREION_TIER", "purec", 1);
+    check_true("env AREION_TIER=purec",
+               areion_pq_set_tier("auto") == 0 && areion_pq_tier_code() == AREION_PQ_TIER_PUREC);
+    (void)unsetenv("AREION_TIER");
+#endif
     areion_pq_use_hardware_acceleration(false);
     check_true("areion_pq_use_hardware_acceleration(false)", areion_pq_tier_code() == AREION_PQ_TIER_PUREC);
     areion_pq_use_hardware_acceleration(true);
@@ -1885,25 +1989,28 @@ int main(int argc, char **argv) {
     test_multithreaded_dispatch();
 #endif
 
-    for (t = 0U; t < sizeof(all_tiers) / sizeof(all_tiers[0]); t++) {
-        areion_pq_tier_t tier = all_tiers[t];
-        int run_slow = (g_full_mode != 0) ? 1 : 0;
-        if (!areion_pq_tier_supported(tier)) {
-            continue;
+    {
+        areion_pq_tier_t hw_tier = areion_pq_tier_code();
+        for (t = 0U; t < sizeof(all_tiers) / sizeof(all_tiers[0]); t++) {
+            areion_pq_tier_t tier = all_tiers[t];
+            int run_slow = (g_full_mode != 0 || tier == hw_tier) ? 1 : 0;
+            if (!areion_pq_tier_supported(tier)) {
+                continue;
+            }
+            (void)areion_pq_set_tier_code(tier);
+            printf("Testing tier: %s ... ", areion_pq_tier());
+            (void)fflush(stdout);
+            check_true("areion_pq_selftest", areion_pq_selftest() == 0);
+            test_finite_fields_and_witnesses();
+            test_slh_tweakable_hashes();
+            test_kdf_siv_and_hpke();
+            test_signatures_and_wrappers(run_slow);
+            test_win64_callee_saved_abi();
+            test_unaligned_and_overlap();
+            test_timecop_constant_time();
+            test_dudect_timing(0);
+            printf("OK\n");
         }
-        (void)areion_pq_set_tier_code(tier);
-        printf("Testing tier: %s ... ", areion_pq_tier());
-        (void)fflush(stdout);
-        check_true("areion_pq_selftest", areion_pq_selftest() == 0);
-        test_finite_fields_and_witnesses();
-        test_slh_tweakable_hashes();
-        test_kdf_siv_and_hpke();
-        test_signatures_and_wrappers(run_slow);
-        test_win64_callee_saved_abi();
-        test_unaligned_and_overlap();
-        test_timecop_constant_time();
-        test_dudect_timing(0);
-        printf("OK\n");
     }
 
     test_all_tiers_pairwise_matrix();

@@ -92,10 +92,6 @@ static void atomic_store_pq_hw_flags(int pclmul, int vpclmul, int pmull) {
 
 static areion_tier_t pq_tier_to_base_tier(areion_pq_tier_t id) {
     switch (id) {
-        case AREION_PQ_TIER_AUTO:
-            return AREION_TIER_AUTO;
-        case AREION_PQ_TIER_PUREC:
-            return AREION_TIER_PUREC;
         case AREION_PQ_TIER_AESNI:
             return AREION_TIER_AESNI;
         case AREION_PQ_TIER_VEX:
@@ -106,6 +102,8 @@ static areion_tier_t pq_tier_to_base_tier(areion_pq_tier_t id) {
             return AREION_TIER_AVX512;
         case AREION_PQ_TIER_ARM64:
             return AREION_TIER_ARM64;
+        case AREION_PQ_TIER_PUREC:
+        case AREION_PQ_TIER_AUTO:
         default:
             return AREION_TIER_PUREC;
     }
@@ -292,24 +290,10 @@ size_t areion_pq_available_tiers(const char **out, size_t max_out) {
 int areion_pq_set_tier_code(areion_pq_tier_t id) {
     (void)get_hw_pq_tier();
     if (id == AREION_PQ_TIER_AUTO) {
-        areion_pq_tier_t selected = get_hw_pq_tier();
-        const char *env = get_env_tier_str();
-        if (env != NULL) {
-            areion_pq_tier_t req = AREION_PQ_TIER_AUTO;
-            if (parse_pq_tier_name(env, &req) && req != AREION_PQ_TIER_AUTO &&
-                areion_pq_check_tier_supported(req)) {
-                selected = req;
-            }
-        }
-        (void)areion_set_tier_override(pq_tier_to_base_tier(selected));
-        atomic_store_active_pq_tier((int)selected);
-        atomic_store_int(&g_active_pq_tier_init_done, 1);
+        (void)init_active_pq_tier();
         return 0;
     }
-    if (!areion_pq_tier_supported(id)) {
-        return -1;
-    }
-    if (!areion_set_tier_override(pq_tier_to_base_tier(id))) {
+    if (!areion_pq_tier_supported(id) || !areion_set_tier_override(pq_tier_to_base_tier(id))) {
         return -1;
     }
     atomic_store_active_pq_tier((int)id);
@@ -404,14 +388,10 @@ static AREION_PQ_NOINLINE uint32_t selftest_pq_primitives(void) {
         b128[i] = (uint8_t)(0x20U + i);
     }
     areion_pq_gf128_mul(ab128, a128, one128);
-    if (areion_pq_ct_eq(ab128, a128, 16U) != 1) {
-        fail |= 1U;
-    }
+    fail |= (uint32_t)(1 - areion_pq_ct_eq(ab128, a128, 16U));
     areion_pq_gf128_mul(ab128, a128, b128);
     areion_pq_gf128_mul(ba128, b128, a128);
-    if (areion_pq_ct_eq(ab128, ba128, 16U) != 1) {
-        fail |= 1U;
-    }
+    fail |= (uint32_t)(1 - areion_pq_ct_eq(ab128, ba128, 16U));
 
     /* 3. 288-S-box and 576-S-box witness extraction & verification check */
     for (i = 0U; i < 32U; i++) {
@@ -420,13 +400,9 @@ static AREION_PQ_NOINLINE uint32_t selftest_pq_primitives(void) {
         k2[i] = (uint8_t)(0x80U + i);
     }
     areion_pq_extract_witness256(c, w256, m, k1, k2);
-    if (areion_pq_verify_witness256(m, c, k1, k2, w256) != 1) {
-        fail |= 1U;
-    }
+    fail |= (uint32_t)(1 - areion_pq_verify_witness256(m, c, k1, k2, w256));
     areion_pq_extract_witness_em2_256(c_em2, w_em2, m, k1, k2);
-    if (areion_pq_verify_witness_em2_256(m, c_em2, k1, k2, w_em2) != 1) {
-        fail |= 1U;
-    }
+    fail |= (uint32_t)(1 - areion_pq_verify_witness_em2_256(m, c_em2, k1, k2, w_em2));
 
     /* 4. TEM2-SIV roundtrip check */
     for (i = 0U; i < 128U; i++) {
@@ -436,12 +412,8 @@ static AREION_PQ_NOINLINE uint32_t selftest_pq_primitives(void) {
         siv_nonce[i] = (uint8_t)(0xa0U + i);
     }
     areion_pq_tem2_siv_encrypt(ct_buf, siv_tag, siv_key, siv_nonce, ad_str, sizeof(ad_str), pt_str, sizeof(pt_str));
-    if (areion_pq_tem2_siv_decrypt(dec_buf, siv_key, siv_nonce, ad_str, sizeof(ad_str), ct_buf, sizeof(ct_buf), siv_tag) != 1) {
-        fail |= 1U;
-    }
-    if (areion_pq_ct_eq(dec_buf, pt_str, sizeof(pt_str)) != 1) {
-        fail |= 1U;
-    }
+    fail |= (uint32_t)(1 - areion_pq_tem2_siv_decrypt(dec_buf, siv_key, siv_nonce, ad_str, sizeof(ad_str), ct_buf, sizeof(ct_buf), siv_tag));
+    fail |= (uint32_t)(1 - areion_pq_ct_eq(dec_buf, pt_str, sizeof(pt_str)));
 
     areion_pq_secure_wipe(one128, sizeof(one128));
     areion_pq_secure_wipe(a128, sizeof(a128));
@@ -465,10 +437,7 @@ static AREION_PQ_NOINLINE uint32_t selftest_pq_primitives(void) {
 }
 
 int areion_pq_selftest(void) {
-    uint32_t fail = 0U;
-    if (areion_selftest() != 0) {
-        fail |= 1U;
-    }
+    uint32_t fail = (areion_selftest() != 0) ? 1U : 0U;
     fail |= selftest_pq_primitives();
     areion_pq_wipe_selftest_stack();
     areion_pq_clobber_scratch_gprs();

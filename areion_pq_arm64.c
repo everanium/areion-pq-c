@@ -81,20 +81,6 @@ void areion_pq_dispatch_vole_xor_row_nowipe(
     areion_pq_vole_xor_row_core(dst, src, len);
 }
 
-void areion_pq_wots_chain256x4_arm64(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps) {
-    areion_pq_wots_chain256x4_purec(out, in, adrs, kpub1, kpub2, start_step, steps);
-}
-
-void areion_pq_dispatch_wots_chain256x4(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps) {
-    areion_pq_wots_chain256x4_purec(out, in, adrs, kpub1, kpub2, start_step, steps);
-}
-
 #else
 typedef int areion_pq_arm64_unused_t;
 #endif

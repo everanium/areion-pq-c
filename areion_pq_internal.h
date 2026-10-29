@@ -91,9 +91,6 @@ static inline void areion_pq_compiler_barrier(void) {
 
 /* DSE-resistant buffer zeroization. */
 static inline void areion_pq_secure_wipe(void *ptr, size_t len) {
-    if (ptr == NULL || len == 0U) {
-        return;
-    }
 #if defined(__GNUC__) || defined(__clang__)
     memset(ptr, 0, len);
     __asm__ __volatile__("" : : "r"(ptr) : "memory");
@@ -423,11 +420,6 @@ AREION_PQ_INTERNAL void areion_pq_dispatch_vole_xor_row(
 AREION_PQ_INTERNAL void areion_pq_dispatch_vole_xor_row_nowipe(
     uint8_t *dst, const uint8_t *src, size_t len);
 
-AREION_PQ_INTERNAL void areion_pq_dispatch_wots_chain256x4(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps);
-
 /* =========================================================================
  * Architecture-Specific Assembly Kernels (areion_pq_{amd64,arm64}.S)
  * ========================================================================= */
@@ -458,23 +450,6 @@ extern void areion_pq_vole_xor_row_avx2(
     uint8_t *dst, const uint8_t *src, size_t len) AREION_PQ_INTERNAL;
 extern void areion_pq_vole_xor_row_avx512(
     uint8_t *dst, const uint8_t *src, size_t len) AREION_PQ_INTERNAL;
-
-AREION_PQ_INTERNAL void areion_pq_wots_chain256x4_aesni(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps);
-AREION_PQ_INTERNAL void areion_pq_wots_chain256x4_vex(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps);
-AREION_PQ_INTERNAL void areion_pq_wots_chain256x4_vaesavx2(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps);
-AREION_PQ_INTERNAL void areion_pq_wots_chain256x4_avx512(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps);
 #endif
 
 #if (defined(__aarch64__) || defined(_M_ARM64)) && !defined(AREION_PQ_FORCE_PORTABLE) && !defined(AREION_FORCE_PORTABLE)
@@ -491,11 +466,6 @@ extern void areion_pq_gf128_polymac_pmull(
 
 extern void areion_pq_vole_xor_row_neon(
     uint8_t *dst, const uint8_t *src, size_t len) AREION_PQ_INTERNAL;
-
-AREION_PQ_INTERNAL void areion_pq_wots_chain256x4_arm64(
-    uint8_t out[4][32], const uint8_t in[4][32], const uint8_t adrs[4][32],
-    const uint8_t kpub1[32], const uint8_t kpub2[32],
-    uint32_t start_step, uint32_t steps);
 #endif
 
 #endif /* AREION_PQ_INTERNAL_H */
