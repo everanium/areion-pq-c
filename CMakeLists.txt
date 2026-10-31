@@ -2,7 +2,7 @@
 # Dual-licensed under Apache-2.0 OR MIT.
 
 cmake_minimum_required(VERSION 3.16)
-project(areion_pq VERSION 0.2.0 LANGUAGES C ASM)
+project(areion_pq VERSION 0.2.1 LANGUAGES C ASM)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -29,6 +29,18 @@ set(AREION_PQ_C_SRCS
     ${AREION_C_DIR}/areion_amd64.c
     ${AREION_C_DIR}/areion_arm64.c
     ${AREION_C_DIR}/areion_other.c
+    ${AREION_C_DIR}/rijndael_purec.c
+    ${AREION_C_DIR}/rijndael_amd64.c
+    ${AREION_C_DIR}/rijndael_arm64.c
+    ${AREION_C_DIR}/rijndael_other.c
+    ${AREION_C_DIR}/vistrutah_purec.c
+    ${AREION_C_DIR}/vistrutah_amd64.c
+    ${AREION_C_DIR}/vistrutah_arm64.c
+    ${AREION_C_DIR}/vistrutah_other.c
+    ${AREION_C_DIR}/asura_purec.c
+    ${AREION_C_DIR}/asura_amd64.c
+    ${AREION_C_DIR}/asura_arm64.c
+    ${AREION_C_DIR}/asura_other.c
 )
 
 if(MSVC)
@@ -40,12 +52,18 @@ if(MSVC)
             ${AREION_C_DIR}/msvc/areion_soem256_amd64.asm
             ${AREION_C_DIR}/msvc/areion_soem512_amd64.asm
             ${AREION_C_DIR}/msvc/areion_soem_aesni_amd64.asm
+            ${AREION_C_DIR}/msvc/rijndael_amd64.asm
+            ${AREION_C_DIR}/msvc/vistrutah_amd64.asm
+            ${AREION_C_DIR}/msvc/asura_amd64.asm
         )
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
         enable_language(ASM_MARMASM)
         set(AREION_PQ_ASM_SRCS
             msvc/areion_pq_arm64.asm
             ${AREION_C_DIR}/msvc/areion_arm64.asm
+            ${AREION_C_DIR}/msvc/rijndael_arm64.asm
+            ${AREION_C_DIR}/msvc/vistrutah_arm64.asm
+            ${AREION_C_DIR}/msvc/asura_arm64.asm
         )
     else()
         set(AREION_PQ_ASM_SRCS "")
@@ -59,6 +77,12 @@ else()
         ${AREION_C_DIR}/areion_soem512_amd64.S
         ${AREION_C_DIR}/areion_soem_aesni_amd64.S
         ${AREION_C_DIR}/areion_arm64.S
+        ${AREION_C_DIR}/rijndael_amd64.S
+        ${AREION_C_DIR}/rijndael_arm64.S
+        ${AREION_C_DIR}/vistrutah_amd64.S
+        ${AREION_C_DIR}/vistrutah_arm64.S
+        ${AREION_C_DIR}/asura_amd64.S
+        ${AREION_C_DIR}/asura_arm64.S
     )
     set_source_files_properties(${AREION_PQ_ASM_SRCS} PROPERTIES LANGUAGE C)
 endif()

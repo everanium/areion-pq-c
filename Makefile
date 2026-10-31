@@ -38,14 +38,32 @@ BASE_LIB_C_NAMES := \
 	areion_purec.c \
 	areion_amd64.c \
 	areion_arm64.c \
-	areion_other.c
+	areion_other.c \
+	rijndael_purec.c \
+	rijndael_amd64.c \
+	rijndael_arm64.c \
+	rijndael_other.c \
+	vistrutah_purec.c \
+	vistrutah_amd64.c \
+	vistrutah_arm64.c \
+	vistrutah_other.c \
+	asura_purec.c \
+	asura_amd64.c \
+	asura_arm64.c \
+	asura_other.c
 
 BASE_LIB_ASM_NAMES := \
 	areion_amd64.S \
 	areion_soem256_amd64.S \
 	areion_soem512_amd64.S \
 	areion_soem_aesni_amd64.S \
-	areion_arm64.S
+	areion_arm64.S \
+	rijndael_amd64.S \
+	rijndael_arm64.S \
+	vistrutah_amd64.S \
+	vistrutah_arm64.S \
+	asura_amd64.S \
+	asura_arm64.S
 
 BASE_LIB_C_SRCS   := $(addprefix $(AREION_C_DIR)/,$(BASE_LIB_C_NAMES))
 BASE_LIB_ASM_SRCS := $(addprefix $(AREION_C_DIR)/,$(BASE_LIB_ASM_NAMES))
@@ -187,8 +205,8 @@ test-sanitizers:
 
 test-qemu:
 	@mkdir -p build/qemu
-	aarch64-linux-gnu-gcc -std=c99 $(WARN_FLAGS) $(SAN_INC) -O3 -march=armv8-a+crypto -static $(ALL_C_SRCS) areion_pq_arm64.S $(AREION_C_DIR)/areion_arm64.S areion_pq_test.c -o build/qemu/test_aarch64 && qemu-aarch64-static -cpu max ./build/qemu/test_aarch64
-	aarch64-linux-gnu-gcc -std=c99 $(WARN_FLAGS) $(SAN_INC) -O3 -march=armv8-a+crypto -static $(ALL_C_SRCS) areion_pq_arm64.S $(AREION_C_DIR)/areion_arm64.S areion_pq_zeroize_test.c -o build/qemu/zero_aarch64 && qemu-aarch64-static -cpu max ./build/qemu/zero_aarch64
+	aarch64-linux-gnu-gcc -std=c99 $(WARN_FLAGS) $(SAN_INC) -O3 -march=armv8-a+crypto -static $(ALL_SRCS) areion_pq_test.c -o build/qemu/test_aarch64 && qemu-aarch64-static -cpu max ./build/qemu/test_aarch64
+	aarch64-linux-gnu-gcc -std=c99 $(WARN_FLAGS) $(SAN_INC) -O3 -march=armv8-a+crypto -static $(ALL_SRCS) areion_pq_zeroize_test.c -o build/qemu/zero_aarch64 && qemu-aarch64-static -cpu max ./build/qemu/zero_aarch64
 	zig cc -target riscv64-linux-musl -std=c99 $(WARN_FLAGS) $(SAN_INC) -Wno-option-ignored -O2 -static $(ALL_C_SRCS) areion_pq_test.c -o build/qemu/test_riscv64 && qemu-riscv64-static ./build/qemu/test_riscv64
 	zig cc -target riscv64-linux-musl -std=c99 $(WARN_FLAGS) $(SAN_INC) -Wno-option-ignored -O2 -static $(ALL_C_SRCS) areion_pq_zeroize_test.c -o build/qemu/zero_riscv64 && qemu-riscv64-static ./build/qemu/zero_riscv64
 	zig cc -target s390x-linux-musl -std=c99 $(WARN_FLAGS) $(SAN_INC) -Wno-option-ignored -O2 -static $(ALL_C_SRCS) areion_pq_test.c -o build/qemu/test_s390x && qemu-s390x-static ./build/qemu/test_s390x

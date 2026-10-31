@@ -446,8 +446,8 @@ def main() -> int:
         (go_mod_dir / "go.mod").write_text(
             f"module godump\n\ngo 1.24\n\n"
             f"require (\n"
-            f"\tgithub.com/everanium/areion v0.1.6\n"
-            f"\tgithub.com/everanium/areion-pq v0.2.0\n"
+            f"\tgithub.com/everanium/areion v0.2.1\n"
+            f"\tgithub.com/everanium/areion-pq v0.2.1\n"
             f")\n\n"
             f"replace github.com/everanium/areion => {AREION_GO_REPO}\n"
             f"replace github.com/everanium/areion-pq => {GO_REPO}\n",
@@ -490,6 +490,12 @@ def main() -> int:
         areion_c_srcs = [
             "constants.c", "cpu.c", "cpu_amd64.c", "cpu_arm64.c", "cpu_other.c",
             "areion_purec.c", "areion_amd64.c", "areion_arm64.c", "areion_other.c",
+            "rijndael_purec.c", "rijndael_amd64.c", "rijndael_arm64.c", "rijndael_other.c",
+            "vistrutah_purec.c", "vistrutah_amd64.c", "vistrutah_arm64.c", "vistrutah_other.c",
+            "asura_purec.c", "asura_amd64.c", "asura_arm64.c", "asura_other.c",
+        ]
+        areion_arm64_asm_srcs = [
+            "areion_arm64.S", "rijndael_arm64.S", "vistrutah_arm64.S", "asura_arm64.S",
         ]
         pq_c_srcs = [
             "constants.c", "cpu.c", "cpu_amd64.c", "cpu_arm64.c", "cpu_other.c",
@@ -504,7 +510,7 @@ def main() -> int:
                     "aarch64-linux-gnu-gcc", "-std=c99", "-O3", "-march=armv8-a+crypto", "-static",
                     "-I", str(C_REPO), "-I", str(AREION_C_REPO),
                     *[str(AREION_C_REPO / s) for s in areion_c_srcs],
-                    str(AREION_C_REPO / "areion_arm64.S"),
+                    *[str(AREION_C_REPO / s) for s in areion_arm64_asm_srcs],
                     *[str(C_REPO / s) for s in pq_c_srcs],
                     str(C_REPO / "areion_pq_arm64.S"),
                     "-o", str(c_bin_arm64),

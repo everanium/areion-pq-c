@@ -3387,6 +3387,103 @@ static void pq_qs_eval_sbox_gate(
     pq_qs_eval_bilinear_constraint(&w, x, &y, is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
 }
 
+static void pq_qs_eval_bilinear_constraint256(
+    const pq_qs_byte_wire_t *a0, const pq_qs_byte_wire_t *a1,
+    const pq_qs_byte_wire_t *b0, const pq_qs_byte_wire_t *b1,
+    const pq_qs_byte_wire_t *c0, const pq_qs_byte_wire_t *c1,
+    int is_verifier, const uint8_t delta[32], const uint8_t chi[32],
+    uint8_t a1_acc[32], uint8_t a0_or_bv_acc[32]) {
+    static const uint8_t alpha[16] = {
+        0x87U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
+        0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U
+    };
+    uint8_t d_lo[15][16], p_lo[8][16];
+    uint8_t d_hi[15][16], p_hi[8][16];
+    uint8_t a_sum[8][16], b_sum[8][16];
+    uint8_t d_mid[15][16], p_mid[8][16];
+    uint8_t p0_256[8][32];
+    unsigned int i, m;
+
+    pq_qs_mul8(d_lo, a0->tag, b0->tag);
+    pq_qs_reduce_gf256_tags(p_lo, (const uint8_t (*)[16])d_lo);
+
+    pq_qs_mul8(d_hi, a1->tag, b1->tag);
+    pq_qs_reduce_gf256_tags(p_hi, (const uint8_t (*)[16])d_hi);
+
+    for (i = 0U; i < 8U; i++) {
+        pq_xor16(a_sum[i], a0->tag[i], a1->tag[i]);
+        pq_xor16(b_sum[i], b0->tag[i], b1->tag[i]);
+    }
+    pq_qs_mul8(d_mid, (const uint8_t (*)[16])a_sum, (const uint8_t (*)[16])b_sum);
+    pq_qs_reduce_gf256_tags(p_mid, (const uint8_t (*)[16])d_mid);
+
+    for (m = 0U; m < 8U; m++) {
+        uint8_t p_hi_alpha[16];
+        areion_pq_dispatch_gf128_mul_nowipe(p_hi_alpha, p_hi[m], alpha);
+        pq_xor16(&p0_256[m][0], p_lo[m], p_hi_alpha);
+        pq_xor16(&p0_256[m][16], p_mid[m], p_lo[m]);
+    }
+
+    if (!is_verifier) {
+        uint8_t d1_lo[15][16], p1_lo[8][16];
+        uint8_t d1_hi[15][16], p1_hi[8][16];
+        unsigned int j;
+        memset(d1_lo, 0, sizeof(d1_lo));
+        memset(d1_hi, 0, sizeof(d1_hi));
+        for (i = 0U; i < 8U; i++) {
+            uint8_t ai_val = (uint8_t)(((uint32_t)a0->val >> i) & 1U);
+            for (j = 0U; j < 8U; j++) {
+                uint8_t bj_val = (uint8_t)(((uint32_t)b0->val >> j) & 1U);
+                pq_xor16_masked(d1_lo[i + j], b0->tag[j], ai_val);
+                pq_xor16_masked(d1_lo[i + j], a0->tag[i], bj_val);
+                pq_xor16_masked(d1_hi[i + j], b1->tag[j], ai_val);
+                pq_xor16_masked(d1_hi[i + j], a1->tag[i], bj_val);
+            }
+        }
+        pq_qs_reduce_gf256_tags(p1_lo, (const uint8_t (*)[16])d1_lo);
+        pq_qs_reduce_gf256_tags(p1_hi, (const uint8_t (*)[16])d1_hi);
+        for (m = 0U; m < 8U; m++) {
+            uint8_t p1_256[32];
+            pq_xor16(&p1_256[0], p1_lo[m], c0->tag[m]);
+            pq_xor16(&p1_256[16], p1_hi[m], c1->tag[m]);
+
+            pq_gf256_field_mul_body(a1_acc, a1_acc, chi);
+            pq_xor32(a1_acc, a1_acc, p1_256);
+
+            pq_gf256_field_mul_body(a0_or_bv_acc, a0_or_bv_acc, chi);
+            pq_xor32(a0_or_bv_acc, a0_or_bv_acc, p0_256[m]);
+        }
+    } else {
+        uint8_t c_full[32], c_delta[32];
+        for (m = 0U; m < 8U; m++) {
+            memcpy(&c_full[0], c0->tag[m], 16U);
+            memcpy(&c_full[16], c1->tag[m], 16U);
+            pq_gf256_field_mul_body(c_delta, c_full, delta);
+            pq_xor32(p0_256[m], p0_256[m], c_delta);
+            pq_gf256_field_mul_body(a0_or_bv_acc, a0_or_bv_acc, chi);
+            pq_xor32(a0_or_bv_acc, a0_or_bv_acc, p0_256[m]);
+        }
+    }
+}
+
+static void pq_qs_eval_sbox_gate256(
+    const pq_qs_byte_wire_t *x0, const pq_qs_byte_wire_t *x1,
+    const pq_qs_byte_wire_t *s0, const pq_qs_byte_wire_t *s1,
+    int is_verifier, const uint8_t delta[32], const uint8_t chi[32],
+    uint8_t a1_acc[32], uint8_t a0_or_bv_acc[32]) {
+    pq_qs_byte_wire_t u0, u1, y0, y1, w0, w1;
+    pq_qs_sq_gf256_wire(&u0, x0);
+    pq_qs_sq_gf256_wire(&u1, x1);
+    pq_qs_affine_inv_wire(&y0, s0, is_verifier, &delta[0]);
+    pq_qs_affine_inv_wire(&y1, s1, is_verifier, &delta[16]);
+    pq_qs_sq_gf256_wire(&w0, &y0);
+    pq_qs_sq_gf256_wire(&w1, &y1);
+    pq_qs_eval_bilinear_constraint256(
+        &u0, &u1, &y0, &y1, x0, x1, is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
+    pq_qs_eval_bilinear_constraint256(
+        &w0, &w1, x0, x1, &y0, &y1, is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
+}
+
 static void pq_qs_mul_ortho128_wires(
     pq_qs_byte_wire_t out[16], const uint8_t t_half[16], const pq_qs_byte_wire_t k_wires[16]) {
     uint8_t p_cur[16];
@@ -3599,6 +3696,273 @@ static void pq_faest_fold_mask128(
     }
 }
 
+static void pq_faest_eval_quicksilver256(
+    const pq_faest_params_t *p,
+    const uint8_t m_pub[32], const uint8_t t_pub[32], const uint8_t c_pub[32],
+    const uint8_t *w_full,
+    const uint8_t bit_tags0[][16], const uint8_t bit_tags1[][16],
+    int is_verifier, const uint8_t delta[32], const uint8_t chi[32],
+    uint8_t a1_acc[32], uint8_t a0_or_bv_acc[32]) {
+    pq_qs_byte_wire_t k1_wires0[32], k1_wires1[32], k2_wires0[32], k2_wires1[32];
+    pq_qs_byte_wire_t x0_0[16], x0_1[16], x1_0[16], x1_1[16];
+    uint32_t i, r, j, p1_rounds;
+
+    memset(a1_acc, 0, 32U);
+    memset(a0_or_bv_acc, 0, 32U);
+
+    if (p->k_bytes == 16U) {
+        for (i = 0U; i < 16U; i++) {
+            pq_qs_wire_from_witness_byte(&k1_wires0[i], i, w_full, bit_tags0, is_verifier);
+            k1_wires0[16U + i] = k1_wires0[i];
+            pq_qs_wire_from_witness_byte(&k1_wires1[i], i, w_full, bit_tags1, is_verifier);
+            k1_wires1[16U + i] = k1_wires1[i];
+        }
+    } else {
+        for (i = 0U; i < 32U; i++) {
+            pq_qs_wire_from_witness_byte(&k1_wires0[i], i, w_full, bit_tags0, is_verifier);
+            pq_qs_wire_from_witness_byte(&k1_wires1[i], i, w_full, bit_tags1, is_verifier);
+        }
+    }
+
+    if (!p->is_em2) {
+        pq_qs_mul_ortho128_wires(&k2_wires0[0], &t_pub[0], &k1_wires0[0]);
+        pq_qs_mul_ortho128_wires(&k2_wires0[16], &t_pub[16], &k1_wires0[16]);
+        pq_qs_mul_ortho128_wires(&k2_wires1[0], &t_pub[0], &k1_wires1[0]);
+        pq_qs_mul_ortho128_wires(&k2_wires1[16], &t_pub[16], &k1_wires1[16]);
+    } else {
+        for (i = 0U; i < 16U; i++) {
+            k2_wires0[i] = k1_wires0[16U + i];
+            pq_qs_xor_byte_wire(&k2_wires0[16U + i], &k1_wires0[i], &k1_wires0[16U + i]);
+            k2_wires1[i] = k1_wires1[16U + i];
+            pq_qs_xor_byte_wire(&k2_wires1[16U + i], &k1_wires1[i], &k1_wires1[16U + i]);
+        }
+    }
+
+    for (i = 0U; i < 16U; i++) {
+        pq_qs_add_const_byte(&x0_0[i], &k1_wires0[i], m_pub[i], is_verifier, &delta[0]);
+        pq_qs_add_const_byte(&x1_0[i], &k1_wires0[16U + i], m_pub[16U + i], is_verifier, &delta[0]);
+        pq_qs_add_const_byte(&x0_1[i], &k1_wires1[i], m_pub[i], is_verifier, &delta[16]);
+        pq_qs_add_const_byte(&x1_1[i], &k1_wires1[16U + i], m_pub[16U + i], is_verifier, &delta[16]);
+    }
+
+    p1_rounds = p->is_em2 ? 9U : 10U;
+    for (r = 0U; r < p1_rounds; r++) {
+        pq_qs_byte_wire_t a0[16], a1[16], b0[16], b1[16];
+        pq_qs_byte_wire_t a_next0[16], a_next1[16], b_next0[16], b_next1[16];
+        pq_qs_byte_wire_t s1_0[16], s1_1[16], mc0[16], mc1[16];
+        pq_qs_byte_wire_t x2_0[16], x2_1[16], t0[16], t1[16];
+        pq_qs_byte_wire_t imc0[16], imc1[16], s2_0[16], s2_1[16];
+
+        if ((r & 1U) == 0U) {
+            memcpy(a0, x0_0, sizeof(a0));
+            memcpy(a1, x0_1, sizeof(a1));
+            memcpy(b0, x1_0, sizeof(b0));
+            memcpy(b1, x1_1, sizeof(b1));
+        } else {
+            memcpy(a0, x1_0, sizeof(a0));
+            memcpy(a1, x1_1, sizeof(a1));
+            memcpy(b0, x0_0, sizeof(b0));
+            memcpy(b1, x0_1, sizeof(b1));
+        }
+        if (r < 9U) {
+            uint32_t base = p->k_bytes + 32U * r;
+            for (i = 0U; i < 16U; i++) {
+                pq_qs_wire_from_witness_byte(&a_next0[i], base + i, w_full, bit_tags0, is_verifier);
+                pq_qs_wire_from_witness_byte(&b_next0[i], base + 16U + i, w_full, bit_tags0, is_verifier);
+                pq_qs_wire_from_witness_byte(&a_next1[i], base + i, w_full, bit_tags1, is_verifier);
+                pq_qs_wire_from_witness_byte(&b_next1[i], base + 16U + i, w_full, bit_tags1, is_verifier);
+            }
+        } else {
+            for (i = 0U; i < 16U; i++) {
+                pq_qs_add_const_byte(&a_next0[i], &k2_wires0[16U + i], c_pub[16U + i], is_verifier, &delta[0]);
+                pq_qs_add_const_byte(&b_next0[i], &k2_wires0[i], c_pub[i], is_verifier, &delta[0]);
+                pq_qs_add_const_byte(&a_next1[i], &k2_wires1[16U + i], c_pub[16U + i], is_verifier, &delta[16]);
+                pq_qs_add_const_byte(&b_next1[i], &k2_wires1[i], c_pub[i], is_verifier, &delta[16]);
+            }
+        }
+
+        pq_qs_inv_shift_rows_block(s1_0, a_next0);
+        pq_qs_inv_shift_rows_block(s1_1, a_next1);
+        for (j = 0U; j < 16U; j++) {
+            pq_qs_eval_sbox_gate256(
+                &a0[j], &a1[j], &s1_0[j], &s1_1[j],
+                is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
+        }
+
+        pq_qs_mix_columns_block(mc0, a_next0);
+        pq_qs_mix_columns_block(mc1, a_next1);
+        for (j = 0U; j < 16U; j++) {
+            pq_qs_add_const_byte(&x2_0[j], &mc0[j], areion_pq_rc_p1[r][j], is_verifier, &delta[0]);
+            pq_qs_add_const_byte(&x2_1[j], &mc1[j], areion_pq_rc_p1[r][j], is_verifier, &delta[16]);
+            pq_qs_xor_byte_wire(&t0[j], &b0[j], &b_next0[j]);
+            pq_qs_xor_byte_wire(&t1[j], &b1[j], &b_next1[j]);
+        }
+        pq_qs_inv_mix_columns_block(imc0, t0);
+        pq_qs_inv_mix_columns_block(imc1, t1);
+        pq_qs_inv_shift_rows_block(s2_0, imc0);
+        pq_qs_inv_shift_rows_block(s2_1, imc1);
+        for (j = 0U; j < 16U; j++) {
+            pq_qs_eval_sbox_gate256(
+                &x2_0[j], &x2_1[j], &s2_0[j], &s2_1[j],
+                is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
+        }
+
+        if ((r & 1U) == 0U) {
+            memcpy(x0_0, a_next0, sizeof(x0_0));
+            memcpy(x0_1, a_next1, sizeof(x0_1));
+            memcpy(x1_0, b_next0, sizeof(x1_0));
+            memcpy(x1_1, b_next1, sizeof(x1_1));
+        } else {
+            memcpy(x1_0, a_next0, sizeof(x1_0));
+            memcpy(x1_1, a_next1, sizeof(x1_1));
+            memcpy(x0_0, b_next0, sizeof(x0_0));
+            memcpy(x0_1, b_next1, sizeof(x0_1));
+        }
+    }
+
+    if (p->is_em2) {
+        uint32_t base_p2 = p->k_bytes + 288U;
+        for (i = 0U; i < 16U; i++) {
+            pq_qs_wire_from_witness_byte(&x0_0[i], base_p2 + i, w_full, bit_tags0, is_verifier);
+            pq_qs_wire_from_witness_byte(&x1_0[i], base_p2 + 16U + i, w_full, bit_tags0, is_verifier);
+            pq_qs_wire_from_witness_byte(&x0_1[i], base_p2 + i, w_full, bit_tags1, is_verifier);
+            pq_qs_wire_from_witness_byte(&x1_1[i], base_p2 + 16U + i, w_full, bit_tags1, is_verifier);
+        }
+        for (r = 1U; r < 10U; r++) {
+            pq_qs_byte_wire_t a0[16], a1[16], b0[16], b1[16];
+            pq_qs_byte_wire_t a_next0[16], a_next1[16], b_next0[16], b_next1[16];
+            pq_qs_byte_wire_t s1_0[16], s1_1[16], mc0[16], mc1[16];
+            pq_qs_byte_wire_t x2_0[16], x2_1[16], t0[16], t1[16];
+            pq_qs_byte_wire_t imc0[16], imc1[16], s2_0[16], s2_1[16];
+
+            if ((r & 1U) == 0U) {
+                memcpy(a0, x0_0, sizeof(a0));
+                memcpy(a1, x0_1, sizeof(a1));
+                memcpy(b0, x1_0, sizeof(b0));
+                memcpy(b1, x1_1, sizeof(b1));
+            } else {
+                memcpy(a0, x1_0, sizeof(a0));
+                memcpy(a1, x1_1, sizeof(a1));
+                memcpy(b0, x0_0, sizeof(b0));
+                memcpy(b1, x0_1, sizeof(b1));
+            }
+            if (r < 9U) {
+                uint32_t base = base_p2 + 32U * r;
+                for (i = 0U; i < 16U; i++) {
+                    pq_qs_wire_from_witness_byte(&a_next0[i], base + i, w_full, bit_tags0, is_verifier);
+                    pq_qs_wire_from_witness_byte(&b_next0[i], base + 16U + i, w_full, bit_tags0, is_verifier);
+                    pq_qs_wire_from_witness_byte(&a_next1[i], base + i, w_full, bit_tags1, is_verifier);
+                    pq_qs_wire_from_witness_byte(&b_next1[i], base + 16U + i, w_full, bit_tags1, is_verifier);
+                }
+            } else {
+                for (i = 0U; i < 16U; i++) {
+                    pq_qs_byte_wire_t k12_hi0, k12_lo0, k12_hi1, k12_lo1;
+                    pq_qs_xor_byte_wire(&k12_hi0, &k1_wires0[16U + i], &k2_wires0[16U + i]);
+                    pq_qs_xor_byte_wire(&k12_lo0, &k1_wires0[i], &k2_wires0[i]);
+                    pq_qs_add_const_byte(&a_next0[i], &k12_hi0, c_pub[16U + i], is_verifier, &delta[0]);
+                    pq_qs_add_const_byte(&b_next0[i], &k12_lo0, c_pub[i], is_verifier, &delta[0]);
+
+                    pq_qs_xor_byte_wire(&k12_hi1, &k1_wires1[16U + i], &k2_wires1[16U + i]);
+                    pq_qs_xor_byte_wire(&k12_lo1, &k1_wires1[i], &k2_wires1[i]);
+                    pq_qs_add_const_byte(&a_next1[i], &k12_hi1, c_pub[16U + i], is_verifier, &delta[16]);
+                    pq_qs_add_const_byte(&b_next1[i], &k12_lo1, c_pub[i], is_verifier, &delta[16]);
+                }
+            }
+
+            pq_qs_inv_shift_rows_block(s1_0, a_next0);
+            pq_qs_inv_shift_rows_block(s1_1, a_next1);
+            for (j = 0U; j < 16U; j++) {
+                pq_qs_eval_sbox_gate256(
+                    &a0[j], &a1[j], &s1_0[j], &s1_1[j],
+                    is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
+            }
+
+            pq_qs_mix_columns_block(mc0, a_next0);
+            pq_qs_mix_columns_block(mc1, a_next1);
+            for (j = 0U; j < 16U; j++) {
+                pq_qs_add_const_byte(&x2_0[j], &mc0[j], areion_pq_rc_p2[r][j], is_verifier, &delta[0]);
+                pq_qs_add_const_byte(&x2_1[j], &mc1[j], areion_pq_rc_p2[r][j], is_verifier, &delta[16]);
+                pq_qs_xor_byte_wire(&t0[j], &b0[j], &b_next0[j]);
+                pq_qs_xor_byte_wire(&t1[j], &b1[j], &b_next1[j]);
+            }
+            pq_qs_inv_mix_columns_block(imc0, t0);
+            pq_qs_inv_mix_columns_block(imc1, t1);
+            pq_qs_inv_shift_rows_block(s2_0, imc0);
+            pq_qs_inv_shift_rows_block(s2_1, imc1);
+            for (j = 0U; j < 16U; j++) {
+                pq_qs_eval_sbox_gate256(
+                    &x2_0[j], &x2_1[j], &s2_0[j], &s2_1[j],
+                    is_verifier, delta, chi, a1_acc, a0_or_bv_acc);
+            }
+
+            if ((r & 1U) == 0U) {
+                memcpy(x0_0, a_next0, sizeof(x0_0));
+                memcpy(x0_1, a_next1, sizeof(x0_1));
+                memcpy(x1_0, b_next0, sizeof(x1_0));
+                memcpy(x1_1, b_next1, sizeof(x1_1));
+            } else {
+                memcpy(x1_0, a_next0, sizeof(x1_0));
+                memcpy(x1_1, a_next1, sizeof(x1_1));
+                memcpy(x0_0, b_next0, sizeof(x0_0));
+                memcpy(x0_1, b_next1, sizeof(x0_1));
+            }
+        }
+    }
+
+    areion_pq_secure_wipe(k1_wires0, sizeof(k1_wires0));
+    areion_pq_secure_wipe(k1_wires1, sizeof(k1_wires1));
+    areion_pq_secure_wipe(k2_wires0, sizeof(k2_wires0));
+    areion_pq_secure_wipe(k2_wires1, sizeof(k2_wires1));
+    areion_pq_secure_wipe(x0_0, sizeof(x0_0));
+    areion_pq_secure_wipe(x0_1, sizeof(x0_1));
+    areion_pq_secure_wipe(x1_0, sizeof(x1_0));
+    areion_pq_secure_wipe(x1_1, sizeof(x1_1));
+}
+
+static void pq_faest_fold_mask256(
+    uint8_t mask[32],
+    const uint8_t bit_tags0[][16], const uint8_t bit_tags1[][16],
+    uint32_t start_bit) {
+    uint8_t basis[32], tag[32], prod[32];
+    uint32_t m;
+
+    memset(mask, 0, 32U);
+    for (m = 0U; m < 256U; m++) {
+        memset(basis, 0, sizeof(basis));
+        basis[m >> 3U] = (uint8_t)(1U << (m & 7U));
+        memcpy(&tag[0], bit_tags0[start_bit + m], 16U);
+        memcpy(&tag[16], bit_tags1[start_bit + m], 16U);
+        pq_gf256_field_mul_body(prod, tag, basis);
+        pq_xor32(mask, mask, prod);
+    }
+    areion_pq_secure_wipe(tag, sizeof(tag));
+    areion_pq_secure_wipe(prod, sizeof(prod));
+}
+
+static void pq_faest_transpose_tags128(
+    uint8_t bit_tags[][16], const uint8_t rows[][640],
+    uint32_t row_offset, uint32_t l_ext) {
+    uint32_t k, i;
+    memset(bit_tags, 0, (size_t)(8U * l_ext) * 16U);
+    for (k = 0U; k < 128U; k++) {
+        const uint8_t *row = rows[row_offset + k];
+        uint32_t k_byte = k >> 3U;
+        uint32_t k_bit = k & 7U;
+        for (i = 0U; i < l_ext; i++) {
+            uint32_t rb = (uint32_t)row[i];
+            uint32_t base = i << 3U;
+            bit_tags[base + 0U][k_byte] |= (uint8_t)((rb & 1U) << k_bit);
+            bit_tags[base + 1U][k_byte] |= (uint8_t)(((rb >> 1U) & 1U) << k_bit);
+            bit_tags[base + 2U][k_byte] |= (uint8_t)(((rb >> 2U) & 1U) << k_bit);
+            bit_tags[base + 3U][k_byte] |= (uint8_t)(((rb >> 3U) & 1U) << k_bit);
+            bit_tags[base + 4U][k_byte] |= (uint8_t)(((rb >> 4U) & 1U) << k_bit);
+            bit_tags[base + 5U][k_byte] |= (uint8_t)(((rb >> 5U) & 1U) << k_bit);
+            bit_tags[base + 6U][k_byte] |= (uint8_t)(((rb >> 6U) & 1U) << k_bit);
+            bit_tags[base + 7U][k_byte] |= (uint8_t)(((rb >> 7U) & 1U) << k_bit);
+        }
+    }
+}
+
 static AREION_PQ_NOINLINE void pq_faest_sign_core_body(
     const pq_faest_params_t *p, uint8_t *sig_out,
     const uint8_t *sk, size_t sk_len,
@@ -3610,12 +3974,12 @@ static AREION_PQ_NOINLINE void pq_faest_sign_core_body(
     uint8_t root_buf[32 + 32 * 32], salt[32];
     uint8_t u0[640], c_trees[32][640], q_rows[256][640], h_trees[32][32];
     uint8_t cur_nodes[1024 * 32], next_nodes[1024 * 32], com_concat[1024 * 32];
-    uint8_t row_j[640], ut[640], d_ext[640], chi[16];
-    uint8_t bit_tags[8 * 640][16];
-    uint8_t zero_delta[16], qs_u[32], w_poly[32], delta_in[80], delta[32];
+    uint8_t row_j[640], ut[640], d_ext[640], chi[32];
+    uint8_t bit_tags0[8 * 640][16], bit_tags1[8 * 640][16];
+    uint8_t zero_delta[32], qs_u[32], w_poly[32], delta_in[96], delta[32];
     pq_iov_t seed_iov[3], fs_iov[6];
     size_t pk_len, off, com_off, end_off;
-    uint32_t bit_off, t, lvl, idx, j, b, num_lanes, lane, k, i;
+    uint32_t bit_off, t, lvl, idx, j, b, i;
 
     if (p->k_bytes == 16U) {
         pq_pad32(k32, &sk[0], 16U);
@@ -3742,57 +4106,60 @@ static AREION_PQ_NOINLINE void pq_faest_sign_core_body(
     pq_kdf_expand_iov(
         fs_iov, 6U,
         (const uint8_t *)"FAEST-FS-CHI", 12U,
-        chi, 16U);
+        chi, (size_t)p->lambda);
     chi[0] |= 0x01U;
 
-    num_lanes = p->lambda / 16U;
     memset(zero_delta, 0, sizeof(zero_delta));
     memset(qs_u, 0, sizeof(qs_u));
     memset(w_poly, 0, sizeof(w_poly));
 
-    for (lane = 0U; lane < num_lanes; lane++) {
+    if (p->lambda == 16U) {
         uint8_t a1_acc[16], a0_acc[16], q_mask[16];
-        memset(bit_tags, 0, (size_t)(8U * p->l_ext) * 16U);
-        for (k = 0U; k < 128U; k++) {
-            const uint8_t *row = q_rows[128U * lane + k];
-            uint32_t k_byte = k >> 3U;
-            uint32_t k_bit = k & 7U;
-            for (i = 0U; i < p->l_ext; i++) {
-                uint32_t rb = (uint32_t)row[i];
-                uint32_t base = i << 3U;
-                bit_tags[base + 0U][k_byte] |= (uint8_t)((rb & 1U) << k_bit);
-                bit_tags[base + 1U][k_byte] |= (uint8_t)(((rb >> 1U) & 1U) << k_bit);
-                bit_tags[base + 2U][k_byte] |= (uint8_t)(((rb >> 2U) & 1U) << k_bit);
-                bit_tags[base + 3U][k_byte] |= (uint8_t)(((rb >> 3U) & 1U) << k_bit);
-                bit_tags[base + 4U][k_byte] |= (uint8_t)(((rb >> 4U) & 1U) << k_bit);
-                bit_tags[base + 5U][k_byte] |= (uint8_t)(((rb >> 5U) & 1U) << k_bit);
-                bit_tags[base + 6U][k_byte] |= (uint8_t)(((rb >> 6U) & 1U) << k_bit);
-                bit_tags[base + 7U][k_byte] |= (uint8_t)(((rb >> 7U) & 1U) << k_bit);
-            }
-        }
+        pq_faest_transpose_tags128(bit_tags0, (const uint8_t (*)[640])q_rows, 0U, p->l_ext);
         pq_faest_eval_quicksilver_lane(
             p, m_pub, t_pub, c_pub, w_full,
-            (const uint8_t (*)[16])bit_tags, 0, zero_delta, chi, a1_acc, a0_acc);
-        pq_faest_fold_mask128(q_mask, (const uint8_t (*)[16])bit_tags, 8U * p->l_bytes + 128U * lane);
+            (const uint8_t (*)[16])bit_tags0, 0, zero_delta, chi, a1_acc, a0_acc);
+        pq_faest_fold_mask128(q_mask, (const uint8_t (*)[16])bit_tags0, 8U * p->l_bytes);
         for (i = 0U; i < 16U; i++) {
-            uint8_t u_mask_byte = u0[p->l_bytes + 16U * lane + i];
-            qs_u[16U * lane + i] = (uint8_t)(a1_acc[i] ^ u_mask_byte);
-            d_ext[p->l_bytes + 16U * lane + i] = qs_u[16U * lane + i];
-            w_poly[16U * lane + i] = (uint8_t)(a0_acc[i] ^ q_mask[i]);
+            uint8_t u_mask_byte = u0[p->l_bytes + i];
+            qs_u[i] = (uint8_t)(a1_acc[i] ^ u_mask_byte);
+            d_ext[p->l_bytes + i] = qs_u[i];
+            w_poly[i] = (uint8_t)(a0_acc[i] ^ q_mask[i]);
         }
         areion_pq_secure_wipe(a1_acc, sizeof(a1_acc));
         areion_pq_secure_wipe(a0_acc, sizeof(a0_acc));
         areion_pq_secure_wipe(q_mask, sizeof(q_mask));
+    } else {
+        uint8_t a1_acc[32], a0_acc[32], q_mask[32];
+        pq_faest_transpose_tags128(bit_tags0, (const uint8_t (*)[640])q_rows, 0U, p->l_ext);
+        pq_faest_transpose_tags128(bit_tags1, (const uint8_t (*)[640])q_rows, 128U, p->l_ext);
+        pq_faest_eval_quicksilver256(
+            p, m_pub, t_pub, c_pub, w_full,
+            (const uint8_t (*)[16])bit_tags0, (const uint8_t (*)[16])bit_tags1,
+            0, zero_delta, chi, a1_acc, a0_acc);
+        pq_faest_fold_mask256(
+            q_mask, (const uint8_t (*)[16])bit_tags0, (const uint8_t (*)[16])bit_tags1,
+            8U * p->l_bytes);
+        for (i = 0U; i < 32U; i++) {
+            uint8_t u_mask_byte = u0[p->l_bytes + i];
+            qs_u[i] = (uint8_t)(a1_acc[i] ^ u_mask_byte);
+            d_ext[p->l_bytes + i] = qs_u[i];
+            w_poly[i] = (uint8_t)(a0_acc[i] ^ q_mask[i]);
+        }
+        areion_pq_secure_wipe(a1_acc, sizeof(a1_acc));
+        areion_pq_secure_wipe(a0_acc, sizeof(a0_acc));
+        areion_pq_secure_wipe(q_mask, sizeof(q_mask));
+        areion_pq_secure_wipe(bit_tags1, sizeof(bit_tags1));
     }
 
     memcpy(&sig_out[32], d_ext, (size_t)p->l_ext);
 
-    memcpy(&delta_in[0], chi, 16U);
-    memcpy(&delta_in[16], qs_u, (size_t)p->lambda);
-    memcpy(&delta_in[16U + p->lambda], w_poly, (size_t)p->lambda);
+    memcpy(&delta_in[0], chi, (size_t)p->lambda);
+    memcpy(&delta_in[p->lambda], qs_u, (size_t)p->lambda);
+    memcpy(&delta_in[2U * (size_t)p->lambda], w_poly, (size_t)p->lambda);
     pq_kdf_expand_body(
         delta, (size_t)p->lambda,
-        delta_in, 16U + 2U * (size_t)p->lambda,
+        delta_in, 3U * (size_t)p->lambda,
         salt, 32U);
 
     com_off = off + (size_t)(8U * p->lambda) * (size_t)p->lambda;
@@ -3870,7 +4237,7 @@ static AREION_PQ_NOINLINE void pq_faest_sign_core_body(
     areion_pq_secure_wipe(ut, sizeof(ut));
     areion_pq_secure_wipe(d_ext, sizeof(d_ext));
     areion_pq_secure_wipe(chi, sizeof(chi));
-    areion_pq_secure_wipe(bit_tags, sizeof(bit_tags));
+    areion_pq_secure_wipe(bit_tags0, sizeof(bit_tags0));
     areion_pq_secure_wipe(qs_u, sizeof(qs_u));
     areion_pq_secure_wipe(w_poly, sizeof(w_poly));
     areion_pq_secure_wipe(delta_in, sizeof(delta_in));
@@ -3899,10 +4266,10 @@ static AREION_PQ_NOINLINE int pq_faest_verify_core_body(
     size_t c_off, sib_off, com_off, cur_sib_off, end_off;
     uint8_t v_rows[256][640], h_trees[32][32];
     uint8_t cur_nodes[1024 * 32], next_nodes[1024 * 32], com_concat[1024 * 32], row_j[640];
-    uint8_t chi[16], w_verif[32], delta_in[80], delta_prime[32];
-    uint8_t bit_tags[8 * 640][16];
+    uint8_t chi[32], w_verif[32], delta_in[96], delta_prime[32];
+    uint8_t bit_tags0[8 * 640][16], bit_tags1[8 * 640][16];
     pq_iov_t fs_iov[6];
-    uint32_t bit_off, t, lvl, idx, j, b, num_lanes, lane, k, i;
+    uint32_t bit_off, t, lvl, idx, j, b, i;
     int ok;
 
     if (p->k_bytes == 16U) {
@@ -4021,48 +4388,45 @@ static AREION_PQ_NOINLINE int pq_faest_verify_core_body(
     pq_kdf_expand_iov(
         fs_iov, 6U,
         (const uint8_t *)"FAEST-FS-CHI", 12U,
-        chi, 16U);
+        chi, (size_t)p->lambda);
     chi[0] |= 0x01U;
 
-    num_lanes = p->lambda / 16U;
     memset(w_verif, 0, sizeof(w_verif));
 
-    for (lane = 0U; lane < num_lanes; lane++) {
+    if (p->lambda == 16U) {
         uint8_t delta_lane[16], a1_unused[16], bv_acc[16], v_mask[16];
-        memset(bit_tags, 0, (size_t)(8U * p->l_ext) * 16U);
-        for (k = 0U; k < 128U; k++) {
-            const uint8_t *row = v_rows[128U * lane + k];
-            uint32_t k_byte = k >> 3U;
-            uint32_t k_bit = k & 7U;
-            for (i = 0U; i < p->l_ext; i++) {
-                uint32_t rb = (uint32_t)row[i];
-                uint32_t base = i << 3U;
-                bit_tags[base + 0U][k_byte] |= (uint8_t)((rb & 1U) << k_bit);
-                bit_tags[base + 1U][k_byte] |= (uint8_t)(((rb >> 1U) & 1U) << k_bit);
-                bit_tags[base + 2U][k_byte] |= (uint8_t)(((rb >> 2U) & 1U) << k_bit);
-                bit_tags[base + 3U][k_byte] |= (uint8_t)(((rb >> 3U) & 1U) << k_bit);
-                bit_tags[base + 4U][k_byte] |= (uint8_t)(((rb >> 4U) & 1U) << k_bit);
-                bit_tags[base + 5U][k_byte] |= (uint8_t)(((rb >> 5U) & 1U) << k_bit);
-                bit_tags[base + 6U][k_byte] |= (uint8_t)(((rb >> 6U) & 1U) << k_bit);
-                bit_tags[base + 7U][k_byte] |= (uint8_t)(((rb >> 7U) & 1U) << k_bit);
-            }
-        }
-        memcpy(delta_lane, &delta_sig[16U * (size_t)lane], 16U);
+        pq_faest_transpose_tags128(bit_tags0, (const uint8_t (*)[640])v_rows, 0U, p->l_ext);
+        memcpy(delta_lane, &delta_sig[0], 16U);
         pq_faest_eval_quicksilver_lane(
             p, m_pub, t_pub, c_pub, NULL,
-            (const uint8_t (*)[16])bit_tags, 1, delta_lane, chi, a1_unused, bv_acc);
-        pq_faest_fold_mask128(v_mask, (const uint8_t (*)[16])bit_tags, 8U * p->l_bytes + 128U * lane);
+            (const uint8_t (*)[16])bit_tags0, 1, delta_lane, chi, a1_unused, bv_acc);
+        pq_faest_fold_mask128(v_mask, (const uint8_t (*)[16])bit_tags0, 8U * p->l_bytes);
         for (i = 0U; i < 16U; i++) {
-            w_verif[16U * lane + i] = (uint8_t)(bv_acc[i] ^ v_mask[i]);
+            w_verif[i] = (uint8_t)(bv_acc[i] ^ v_mask[i]);
+        }
+    } else {
+        uint8_t delta_full[32], a1_unused[32], bv_acc[32], v_mask[32];
+        pq_faest_transpose_tags128(bit_tags0, (const uint8_t (*)[640])v_rows, 0U, p->l_ext);
+        pq_faest_transpose_tags128(bit_tags1, (const uint8_t (*)[640])v_rows, 128U, p->l_ext);
+        memcpy(delta_full, &delta_sig[0], 32U);
+        pq_faest_eval_quicksilver256(
+            p, m_pub, t_pub, c_pub, NULL,
+            (const uint8_t (*)[16])bit_tags0, (const uint8_t (*)[16])bit_tags1,
+            1, delta_full, chi, a1_unused, bv_acc);
+        pq_faest_fold_mask256(
+            v_mask, (const uint8_t (*)[16])bit_tags0, (const uint8_t (*)[16])bit_tags1,
+            8U * p->l_bytes);
+        for (i = 0U; i < 32U; i++) {
+            w_verif[i] = (uint8_t)(bv_acc[i] ^ v_mask[i]);
         }
     }
 
-    memcpy(&delta_in[0], chi, 16U);
-    memcpy(&delta_in[16], qs_u, (size_t)p->lambda);
-    memcpy(&delta_in[16U + p->lambda], w_verif, (size_t)p->lambda);
+    memcpy(&delta_in[0], chi, (size_t)p->lambda);
+    memcpy(&delta_in[p->lambda], qs_u, (size_t)p->lambda);
+    memcpy(&delta_in[2U * (size_t)p->lambda], w_verif, (size_t)p->lambda);
     pq_kdf_expand_body(
         delta_prime, (size_t)p->lambda,
-        delta_in, 16U + 2U * (size_t)p->lambda,
+        delta_in, 3U * (size_t)p->lambda,
         salt, 32U);
 
     ok = areion_pq_ct_eq(delta_sig, delta_prime, (size_t)p->lambda);
