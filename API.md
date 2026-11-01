@@ -29,11 +29,11 @@ Version macros, block/state/witness/key/signature size constants (in bytes), and
 
 | Macro | Value | Description |
 | :--- | :---: | :--- |
-| `AREION_PQ_VERSION` | `"0.2.2"` | Null-terminated semantic version string |
-| `AREION_PQ_VERSION_STRING` | `"0.2.2"` | Alias for `AREION_PQ_VERSION` |
+| `AREION_PQ_VERSION` | `"0.2.3"` | Null-terminated semantic version string |
+| `AREION_PQ_VERSION_STRING` | `"0.2.3"` | Alias for `AREION_PQ_VERSION` |
 | `AREION_PQ_VERSION_MAJOR` | `0` | Major version number |
 | `AREION_PQ_VERSION_MINOR` | `2` | Minor version number |
-| `AREION_PQ_VERSION_PATCH` | `2` | Patch version number |
+| `AREION_PQ_VERSION_PATCH` | `3` | Patch version number |
 | `AREION_PQ_API` | platform-specific | Shared-library symbol export attribute (`__attribute__((visibility("default")))` or `__declspec(dllexport)`) |
 | `AREION_API` | platform-specific | Defaults to `__attribute__((visibility("hidden")))` when `areion.h` is included through `areion_pq.h` so `libareion_pq.so` exports only `areion_pq_*` symbols |
 
@@ -277,7 +277,7 @@ Standard SUPERCOP (`eBACS`) C99 `ref` wrappers (`api.h` + `sign.c` / `encrypt.c`
 | `supercop/crypto_sign/slh_dsa_areion256s/ref/` | `crypto_sign` | `areion_pq_slhdsa_{keygen,sign,verify}256s` | 96 / 64 / 128 / 29,792 B |
 | `supercop/crypto_aead/areion_tem2_siv512/ref/` | `crypto_aead` | `areion_pq_tem2_siv_{encrypt,decrypt}` | Key: 128 B / Nonce: 32 B / Tag: 32 B |
 
-Each `supercop/crypto_sign/<scheme>/ref/api.h` defines `CRYPTO_SECRETKEYBYTES`, `CRYPTO_PUBLICKEYBYTES`, `CRYPTO_BYTES`, `CRYPTO_SEEDBYTES`, `CRYPTO_VERSION` (`"0.2.2"`), and the 6 SUPERCOP C99 entry points (`0` on success, `-1` on verification failure):
+Each `supercop/crypto_sign/<scheme>/ref/api.h` defines `CRYPTO_SECRETKEYBYTES`, `CRYPTO_PUBLICKEYBYTES`, `CRYPTO_BYTES`, `CRYPTO_SEEDBYTES`, `CRYPTO_VERSION` (`"0.2.3"`), and the 6 SUPERCOP C99 entry points (`0` on success, `-1` on verification failure):
 ```c
 int crypto_sign_seed_keypair(unsigned char *pk, unsigned char *sk, const unsigned char *seed);
 int crypto_sign_keypair(unsigned char *pk, unsigned char *sk);
@@ -286,7 +286,7 @@ int crypto_sign_verify(const unsigned char *sig, unsigned long long siglen, cons
 int crypto_sign(unsigned char *sm, unsigned long long *smlen, const unsigned char *m, unsigned long long mlen, const unsigned char *sk);
 int crypto_sign_open(unsigned char *m, unsigned long long *mlen, const unsigned char *sm, unsigned long long smlen, const unsigned char *pk);
 ```
-`supercop/crypto_aead/areion_tem2_siv512/ref/api.h` defines `CRYPTO_KEYBYTES` (`128`), `CRYPTO_NSECBYTES` (`0`), `CRYPTO_NPUBBYTES` (`32`), `CRYPTO_ABYTES` (`32`), `CRYPTO_NOOVERLAP` (`1`), `CRYPTO_VERSION` (`"0.2.2"`), and:
+`supercop/crypto_aead/areion_tem2_siv512/ref/api.h` defines `CRYPTO_KEYBYTES` (`128`), `CRYPTO_NSECBYTES` (`0`), `CRYPTO_NPUBBYTES` (`32`), `CRYPTO_ABYTES` (`32`), `CRYPTO_NOOVERLAP` (`1`), `CRYPTO_VERSION` (`"0.2.3"`), and:
 ```c
 int crypto_aead_encrypt(unsigned char *c, unsigned long long *clen, const unsigned char *m, unsigned long long mlen, const unsigned char *ad, unsigned long long adlen, const unsigned char *nsec, const unsigned char *npub, const unsigned char *k);
 int crypto_aead_decrypt(unsigned char *m, unsigned long long *mlen, unsigned char *nsec, const unsigned char *c, unsigned long long clen, const unsigned char *ad, unsigned long long adlen, const unsigned char *npub, const unsigned char *k);
@@ -303,7 +303,7 @@ Standalone PQClean-compatible C99 `clean` packages (`api.h`, `sign.c`, `Makefile
 | `pqclean/crypto_sign/slh-dsa-areion-128f/clean/` | `PQCLEAN_SLHDSAAREION128F_CLEAN` | `PQCLEAN_SLH_DSA_AREION_128F_CLEAN` | `"SLH-DSA-Areion-128f"` | 48 / 32 / 64 / 17,088 B |
 | `pqclean/crypto_sign/slh-dsa-areion-256f/clean/` | `PQCLEAN_SLHDSAAREION256F_CLEAN` | `PQCLEAN_SLH_DSA_AREION_256F_CLEAN` | `"SLH-DSA-Areion-256f"` | 96 / 64 / 128 / 49,856 B |
 
-Each `pqclean/crypto_sign/<scheme>/clean/api.h` exports both `<NS>_*` and `<ALT_NS>_*` macros (`_CRYPTO_SECRETKEYBYTES`, `_CRYPTO_PUBLICKEYBYTES`, `_CRYPTO_BYTES`, `_CRYPTO_SEEDBYTES`, `_CRYPTO_ALGNAME`) and 6 functions (`0` on success, `-1` on verification failure):
+Each `pqclean/crypto_sign/<scheme>/clean/api.h` exports both `<NS>_*` and `<ALT_NS>_*` macros (`_CRYPTO_SECRETKEYBYTES`, `_CRYPTO_PUBLICKEYBYTES`, `_CRYPTO_BYTES`, `_CRYPTO_SEEDBYTES`, `_CRYPTO_ALGNAME`, `_CRYPTO_VERSION` `"0.2.3"`) and 6 functions (`0` on success, `-1` on verification failure):
 ```c
 int <NS>_crypto_sign_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed);
 int <NS>_crypto_sign_keypair(uint8_t *pk, uint8_t *sk);

@@ -730,6 +730,15 @@ static void test_signatures_and_wrappers(int run_slow_s_variants) {
     check_true("SUPERCOP faest128f mlen", mlen_out == sizeof(msg));
     check_bytes_eq("SUPERCOP faest128f msg", open_buf, msg, sizeof(msg));
 
+    check_true("PQClean faest-128f version",
+               strcmp(PQCLEAN_FAESTAREION128F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_FAEST_AREION_128F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_FAESTAREION256F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_FAEST_AREION_256F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_SLHDSAAREION128F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_SLH_DSA_AREION_128F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_SLHDSAAREION256F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0 &&
+               strcmp(PQCLEAN_SLH_DSA_AREION_256F_CLEAN_CRYPTO_VERSION, AREION_PQ_VERSION) == 0);
     g_failures += PQCLEAN_FAESTAREION128F_CLEAN_crypto_sign_keypair(pk48, sk64);
     g_failures += PQCLEAN_FAESTAREION128F_CLEAN_crypto_sign_signature(sig_buf, &pq_siglen, msg, sizeof(msg), sk64);
     check_true("PQClean faest-128f verify",
